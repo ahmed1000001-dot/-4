@@ -1,0 +1,23 @@
+تشغيل وبناء APK بدون Android Studio
+
+الطريقة الأسهل: GitHub Actions
+
+1) أنشئ حساب GitHub مجاني إن لم يكن لديك.
+2) أنشئ Repository جديد.
+3) ارفع كل محتويات مجلد المشروع إلى الـ Repository.
+4) افتح تبويب Actions.
+5) ستجد Workflow باسم: Build Android APK
+6) افتحه واضغط Run workflow.
+7) انتظر حتى تصبح العملية باللون الأخضر.
+8) افتح نتيجة الـ Run.
+9) في قسم Artifacts ستجد:
+   school-canteen-apk
+10) نزّل الـ Artifact وفك الضغط، ستجد:
+   app-debug.apk
+11) انقل app-debug.apk إلى Samsung A12 وثبته.
+
+لا تحتاج Android Studio على جهازك.
+
+ملاحظة:
+إذا لم يظهر زر Run workflow، تأكد أن الملف موجود هنا:
+.github/workflows/build-apk.yml
