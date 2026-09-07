@@ -17,7 +17,7 @@ public class MainActivity extends Activity{
   @JavascriptInterface public long addIncome(String d,String t,double a,String n){return db.addIncome(d,t,a,n);}@JavascriptInterface public int updateIncome(long id,String d,String t,double a,String n){return db.updateIncome(id,d,t,a,n);}
   @JavascriptInterface public int deleteSimple(String t,long id){return db.deleteSimple(t,id);}
   @JavascriptInterface public long saveInventory(String j){return db.saveInventory(j);}@JavascriptInterface public int deleteInventory(long id){return db.deleteInventory(id);}
-  @JavascriptInterface public void exportBackup(){pending=db.backup();runOnUiThread(()->{Intent i=new Intent(Intent.ACTION_CREATE_DOCUMENT);i.addCategory(Intent.CATEGORY_OPENABLE);i.setType("application/json");i.putExtra(Intent.EXTRA_TITLE,"canteen-pro-v4-backup.json");startActivityForResult(i,EXP);});}
+  @JavascriptInterface public void exportBackup(){pending=db.backup();runOnUiThread(()->{Intent i=new Intent(Intent.ACTION_CREATE_DOCUMENT);i.addCategory(Intent.CATEGORY_OPENABLE);i.setType("application/json");i.putExtra(Intent.EXTRA_TITLE,"canteen-pro-v4.6-backup.json");startActivityForResult(i,EXP);});}
   @JavascriptInterface public void importBackup(){runOnUiThread(()->{Intent i=new Intent(Intent.ACTION_OPEN_DOCUMENT);i.addCategory(Intent.CATEGORY_OPENABLE);i.setType("application/json");startActivityForResult(i,IMP);});}
   @JavascriptInterface public void toast(String x){runOnUiThread(()->Toast.makeText(MainActivity.this,x,Toast.LENGTH_SHORT).show());}
  }

@@ -10,7 +10,7 @@ import org.json.JSONObject;
 
 public class DBHelper extends SQLiteOpenHelper {
     private static final String DB_NAME="canteen_pro_final.db";
-    private static final int DB_VERSION=6;
+    private static final int DB_VERSION=7;
     public DBHelper(Context c){super(c,DB_NAME,null,DB_VERSION);}
 
     @Override public void onCreate(SQLiteDatabase db){
@@ -55,11 +55,32 @@ public class DBHelper extends SQLiteOpenHelper {
     }
 
     @Override public void onUpgrade(SQLiteDatabase db,int oldV,int newV){
-        // Preserve products/suppliers from v3, rebuild transaction logic to match the real workflow.
-        String[] tx={"purchase_lines","purchase_invoices","sales","daily_sales","supplier_payments","expenses","withdrawals","other_income","daily_opening","inventory_lines","inventory_sessions"};
-        for(String t:tx) db.execSQL("DROP TABLE IF EXISTS "+t);
-        // products in older version had min_stock; keeping it is harmless. New code does not rely on it.
-        createTransactions(db);
+        // Upgrade from very old versions by rebuilding transaction tables.
+        if(oldV < 6){
+            String[] tx={"purchase_lines","purchase_invoices","sales","daily_sales","supplier_payments","expenses","withdrawals","other_income","daily_opening","inventory_lines","inventory_sessions"};
+            for(String t:tx) db.execSQL("DROP TABLE IF EXISTS "+t);
+            createTransactions(db);
+            oldV=6;
+        }
+        // v7: purchase invoices no longer contain a "paid with invoice" workflow.
+        // Existing amounts previously entered as paid-with-invoice are moved to supplier payments
+        // so no historical money is lost, then invoice paid is reset to zero.
+        if(oldV < 7){
+            try{
+                Cursor c=db.rawQuery("SELECT id,date,supplier_id,paid FROM purchase_invoices WHERE paid>0",null);
+                try{
+                    while(c.moveToNext()){
+                        ContentValues v=new ContentValues();
+                        v.put("date",c.getString(1));
+                        v.put("supplier_id",c.getLong(2));
+                        v.put("amount",c.getDouble(3));
+                        v.put("note","ترحيل تلقائي من مسدد مع الفاتورة - فاتورة رقم "+c.getLong(0));
+                        db.insert("supplier_payments",null,v);
+                    }
+                }finally{c.close();}
+                db.execSQL("UPDATE purchase_invoices SET paid=0");
+            }catch(Exception ignored){}
+        }
     }
 
     private double scalar(String sql,String[] args){
@@ -95,7 +116,7 @@ public class DBHelper extends SQLiteOpenHelper {
             for(int i=0;i<lines.length();i++) invoiceTotal+=lines.getJSONObject(i).getDouble("purchase_total");
             ContentValues h=new ContentValues();
             h.put("date",o.getString("date"));h.put("supplier_id",o.getLong("supplier_id"));
-            h.put("invoice_total",invoiceTotal);h.put("paid",o.optDouble("paid",0));h.put("note",o.optString("note",""));
+            h.put("invoice_total",invoiceTotal);h.put("paid",0);h.put("note",o.optString("note",""));
             long iid=db.insertOrThrow("purchase_invoices",null,h);
 
             for(int i=0;i<lines.length();i++){
@@ -194,7 +215,7 @@ public class DBHelper extends SQLiteOpenHelper {
         try{
             JSONObject o=new JSONObject();
             o.put("products",query("SELECT id,code,name,carton_pieces,sale_price,active,note FROM products ORDER BY active DESC,code",null));
-            o.put("suppliers",query("SELECT s.*,COALESCE((SELECT SUM(invoice_total) FROM purchase_invoices i WHERE i.supplier_id=s.id),0) invoices_total,COALESCE((SELECT SUM(paid) FROM purchase_invoices i WHERE i.supplier_id=s.id),0) invoice_paid,COALESCE((SELECT SUM(amount) FROM supplier_payments p WHERE p.supplier_id=s.id),0) later_paid FROM suppliers s ORDER BY s.name",null));
+            o.put("suppliers",query("SELECT s.*,COALESCE((SELECT SUM(invoice_total) FROM purchase_invoices i WHERE i.supplier_id=s.id),0) invoices_total,0 invoice_paid,COALESCE((SELECT SUM(amount) FROM supplier_payments p WHERE p.supplier_id=s.id),0) later_paid FROM suppliers s ORDER BY s.name",null));
             o.put("purchases",query("SELECT i.id,i.date,i.supplier_id,s.name supplier,i.invoice_total,i.paid,(i.invoice_total-i.paid) invoice_remaining,i.note,COALESCE((SELECT SUM(expected_sales) FROM purchase_lines l WHERE l.invoice_id=i.id),0) expected_sales,COALESCE((SELECT SUM(expected_profit) FROM purchase_lines l WHERE l.invoice_id=i.id),0) expected_profit FROM purchase_invoices i JOIN suppliers s ON s.id=i.supplier_id ORDER BY i.date DESC,i.id DESC",null));
             o.put("purchase_lines",query("SELECT l.*,p.name product,p.code FROM purchase_lines l JOIN products p ON p.id=l.product_id ORDER BY l.id",null));
             o.put("daily_sales",query("SELECT * FROM daily_sales ORDER BY date DESC,id DESC",null));
