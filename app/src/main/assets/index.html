@@ -1,5 +1,5 @@
 <!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Canteen Pro v4.6</title><style>
+<title>Canteen Pro v4.9</title><style>
 *{box-sizing:border-box}body{margin:0;font-family:Tahoma,Arial,sans-serif;background:#f4f5f7;color:#171717}header{background:#161616;color:#fff;padding:14px 16px;position:sticky;top:0;z-index:5}header h1{font-size:20px;margin:0}header small{color:#ccc}
 main{max-width:1100px;margin:auto;padding:12px 12px 90px}.view{display:none}.view.active{display:block}.panel,.card{background:#fff;border:1px solid #ddd;border-radius:14px;padding:13px;margin-bottom:10px}.panel h2{font-size:17px;margin:0 0 12px}.panel h3{font-size:15px;margin:14px 0 8px}
 .cards{display:grid;grid-template-columns:repeat(2,1fr);gap:9px}.card span{display:block;color:#666;font-size:12px}.card b{display:block;font-size:21px;margin-top:5px}.wide{grid-column:1/-1}
@@ -9,7 +9,11 @@ button{font:inherit;font-weight:bold;border:1px solid #ccc;border-radius:9px;pad
 .bottom{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid #ddd;display:flex;overflow-x:auto;z-index:6}.bottom button{border:0;border-radius:0;min-width:78px;font-size:10px;padding:10px 6px}.bottom button.active{background:#e9e9e9}
 .badge{display:inline-block;border-radius:999px;padding:3px 8px;background:#eee}.dayname{display:inline-block;margin-top:4px;font-size:12px;font-weight:bold;color:#444;background:#f1f1f1;padding:4px 8px;border-radius:8px}.resultbox{padding:14px;border:2px solid #ddd;border-radius:12px;text-align:center}.resultbox b{font-size:27px;display:block}
 @media(min-width:760px){.cards{grid-template-columns:repeat(4,1fr)}.wide{grid-column:auto}}
-</style></head><body><header><h1>Canteen Pro</h1><small>الإصدار النهائي المراجع v4.6 — يعمل بدون إنترنت</small></header><main>
+
+.delmodal{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center;z-index:99999;padding:20px}
+.delmodal.show{display:flex}.delbox{background:#fff;border-radius:16px;padding:20px;max-width:360px;width:100%;box-shadow:0 12px 40px rgba(0,0,0,.25);text-align:center}
+.delbox h3{margin:0 0 10px}.delbox p{margin:0 0 18px}.delactions{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+</style></head><body><header><h1>Canteen Pro</h1><small>الإصدار v4.9 — مراجعة الحذف + قيمة البضاعة غير المباعة</small></header><main>
 
 <section id="home" class="view active">
 <div class="cards">
@@ -82,13 +86,28 @@ button{font:inherit;font-weight:bold;border:1px solid #ccc;border-radius:9px;pad
 
 <section id="reports" class="view">
 <div class="panel"><h2>تقرير فترة</h2><div class="two"><label>من<input type="date" id="rFrom" onchange="renderReport()"><span class="dayname" id="rFromDay"></span></label><label>إلى<input type="date" id="rTo" onchange="renderReport()"><span class="dayname" id="rToDay"></span></label></div>
-<div class="cards" style="margin-top:10px"><div class="card"><span>المشتريات</span><b id="rPurch">0</b></div><div class="card"><span>بيع متوقع</span><b id="rExpectedSales">0</b></div><div class="card"><span>ربح متوقع</span><b id="rExpectedProfit">0</b></div><div class="card"><span>نسبة الربح</span><b id="rPct">0%</b></div><div class="card"><span>المبيعات الفعلية</span><b id="rSales">0</b></div><div class="card"><span>المصاريف</span><b id="rExp">0</b></div><div class="card"><span>المسحوبات</span><b id="rWd">0</b></div><div class="card"><span>الإيرادات الأخرى</span><b id="rInc">0</b></div></div></div>
+<div class="cards" style="margin-top:10px"><div class="card"><span>المشتريات</span><b id="rPurch">0</b></div><div class="card"><span>بيع متوقع</span><b id="rExpectedSales">0</b></div><div class="card"><span>ربح متوقع</span><b id="rExpectedProfit">0</b></div><div class="card"><span>نسبة الربح</span><b id="rPct">0%</b></div><div class="card"><span>المبيعات الفعلية</span><b id="rSales">0</b></div><div class="card"><span>المصاريف</span><b id="rExp">0</b></div><div class="card"><span>المسحوبات</span><b id="rWd">0</b></div><div class="card"><span>الإيرادات الأخرى</span><b id="rInc">0</b></div><div class="card"><span>قيمة البضاعة غير المباعة بسعر البيع</span><b id="rUnsold">0</b><small id="rUnsoldDate" class="muted"></small></div></div></div>
 <div class="panel"><h2>ربحية المنتجات المشتراة</h2><div class="tablewrap"><table class="grid"><thead><tr><th>المنتج</th><th>إجمالي شراء</th><th>بيع متوقع</th><th>ربح متوقع</th><th>نسبة الربح</th></tr></thead><tbody id="reportProductRows"></tbody></table></div></div>
+<div class="panel"><h2>البضاعة غير المباعة — حسب آخر جرد في الفترة</h2>
+<p class="muted">القيمة = الكمية المتبقية فعليًا في الجرد × سعر بيع القطعة.</p>
+<div class="tablewrap"><table class="grid"><thead><tr><th>المنتج</th><th>الكمية المتبقية</th><th>سعر البيع</th><th>القيمة بسعر البيع</th></tr></thead><tbody id="reportUnsoldRows"></tbody></table></div>
+</div>
 </section>
 
 <section id="backup" class="view"><div class="panel"><h2>النسخ الاحتياطي</h2><div class="two"><button type="button" class="primary" onclick="AndroidDB.exportBackup()">حفظ نسخة</button><button type="button" onclick="AndroidDB.importBackup()">استرجاع نسخة</button></div><p class="muted">احفظ نسخة قبل حذف التطبيق أو تغيير الهاتف.</p></div></section>
 
-</main><nav class="bottom">
+</main>
+<div id="deleteModal" class="delmodal">
+  <div class="delbox">
+    <h3>تأكيد الحذف</h3>
+    <p id="deleteMessage">هل تريد الحذف؟</p>
+    <div class="delactions">
+      <button type="button" onclick="cancelDelete()">إلغاء</button>
+      <button type="button" class="danger" onclick="confirmDeleteNow()">حذف</button>
+    </div>
+  </div>
+</div>
+<nav class="bottom">
 <button class="active" data-v="home" onclick="go('home')">الرئيسية</button><button data-v="products" onclick="go('products')">الأصناف</button><button data-v="purchases" onclick="go('purchases')">المشتريات</button><button data-v="sales" onclick="go('sales')">المبيعات</button><button data-v="supplier" onclick="go('supplier')">المورد</button><button data-v="expenses" onclick="go('expenses')">المصاريف</button><button data-v="income" onclick="go('income')">الإيرادات</button><button data-v="inventory" onclick="go('inventory')">الجرد</button><button data-v="reports" onclick="go('reports')">تقارير</button><button data-v="backup" onclick="go('backup')">نسخة</button>
 </nav>
 <script>
@@ -199,17 +218,49 @@ function periodMetrics(f,t){let purchases=(db.purchases||[]).filter(x=>inRange(x
 function calcInventory(){let value=0;activeProducts().forEach(p=>{let el=document.querySelector(`.invqty[data-pid="${p.id}"]`),q=el?n(el.value):0,v=q*n(p.sale_price);value+=v;let b=$('iv'+p.id);if(b)b.textContent=money(v)});let f=$('invFrom').value,t=$('invTo').value,m=periodMetrics(f,t),paid=m.invoicePaid+m.laterPaid,debt=m.purchases-paid,cash=m.sales+m.income-paid-m.expenses-m.withdrawals,actual=cash+value-debt,expectedNet=m.expected+m.income-m.expenses-m.withdrawals,diff=actual-expectedNet;$('invValue').textContent=money(value);$('invSales').textContent=money(m.sales);$('invIncome').textContent=money(m.income);$('invPurchases').textContent=money(m.purchases);$('invSupplierPaid').textContent=money(paid);$('invDebt').textContent=money(debt);$('invExpenses').textContent=money(m.expenses);$('invWithdrawals').textContent=money(m.withdrawals);$('invExpected').textContent=money(m.expected);$('invExpectedNet').textContent=money(expectedNet);$('invActualNet').textContent=money(actual);$('invResult').textContent=money(Math.abs(diff));let st=$('invStatus');if(Math.abs(diff)<0.01){st.textContent='الحساب تمام — لا عجز ولا زيادة';st.className='good'}else if(diff<0){st.textContent='عجز';st.className='bad'}else{st.textContent='زيادة';st.className='good'}}
 ['invFrom','invTo'].forEach(x=>$(x).addEventListener('change',calcInventory));$('inventoryForm').onsubmit=e=>{e.preventDefault();let lines=activeProducts().map(p=>({product_id:p.id,qty:n(document.querySelector(`.invqty[data-pid="${p.id}"]`).value)}));let payload={date:$('invDate').value,from_date:$('invFrom').value,to_date:$('invTo').value,note:$('invNote').value,lines};let r=AndroidDB.saveInventory(JSON.stringify(payload));if(r<0)AndroidDB.toast('تعذر حفظ الجرد');else{document.querySelectorAll('.invqty').forEach(x=>x.value=0);$('invNote').value='';refresh()}}
 function renderInventories(){$('inventoryRows').innerHTML=(db.inventories||[]).map(x=>`<tr><td>${dayName(x.date)}<br>${x.date}</td><td>${x.from_date||'—'} → ${x.to_date||'—'}</td><td>${money(x.total_value)}</td><td><button type="button" class="danger" onclick="deleteInventory(${x.id})">حذف</button></td></tr>`).join('')}
-function renderReport(){let f=$('rFrom').value,t=$('rTo').value,m=periodMetrics(f,t),pls=(db.purchase_lines||[]).filter(l=>{let inv=(db.purchases||[]).find(i=>n(i.id)===n(l.invoice_id));return inv&&inRange(inv.date,f,t)}),es=pls.reduce((a,x)=>a+n(x.expected_sales),0);$('rPurch').textContent=money(m.purchases);$('rExpectedSales').textContent=money(es);$('rExpectedProfit').textContent=money(m.expected);$('rPct').textContent=(m.purchases?m.expected/m.purchases*100:0).toFixed(2)+'%';$('rSales').textContent=money(m.sales);$('rExp').textContent=money(m.expenses);$('rWd').textContent=money(m.withdrawals);$('rInc').textContent=money(m.income);let map={};pls.forEach(x=>{let k=x.product;if(!map[k])map[k]={buy:0,sell:0,profit:0};map[k].buy+=n(x.purchase_total);map[k].sell+=n(x.expected_sales);map[k].profit+=n(x.expected_profit)});$('reportProductRows').innerHTML=Object.entries(map).map(([k,v])=>`<tr><td>${k}</td><td>${money(v.buy)}</td><td>${money(v.sell)}</td><td>${money(v.profit)}</td><td>${(v.buy?v.profit/v.buy*100:0).toFixed(2)}%</td></tr>`).join('')}
+function renderReport(){
+let f=$('rFrom').value,t=$('rTo').value,m=periodMetrics(f,t),
+pls=(db.purchase_lines||[]).filter(l=>{let inv=(db.purchases||[]).find(i=>n(i.id)===n(l.invoice_id));return inv&&inRange(inv.date,f,t)}),
+es=pls.reduce((a,x)=>a+n(x.expected_sales),0);
+$('rPurch').textContent=money(m.purchases);
+$('rExpectedSales').textContent=money(es);
+$('rExpectedProfit').textContent=money(m.expected);
+$('rPct').textContent=(m.purchases?m.expected/m.purchases*100:0).toFixed(2)+'%';
+$('rSales').textContent=money(m.sales);
+$('rExp').textContent=money(m.expenses);
+$('rWd').textContent=money(m.withdrawals);
+$('rInc').textContent=money(m.income);
+let map={};
+pls.forEach(x=>{let k=x.product;if(!map[k])map[k]={buy:0,sell:0,profit:0};map[k].buy+=n(x.purchase_total);map[k].sell+=n(x.expected_sales);map[k].profit+=n(x.expected_profit)});
+$('reportProductRows').innerHTML=Object.entries(map).map(([k,v])=>`<tr><td>${k}</td><td>${money(v.buy)}</td><td>${money(v.sell)}</td><td>${money(v.profit)}</td><td>${(v.buy?v.profit/v.buy*100:0).toFixed(2)}%</td></tr>`).join('');
+let invs=(db.inventories||[]).filter(x=>inRange(x.date,f,t)).slice().sort((a,b)=>b.date.localeCompare(a.date)||n(b.id)-n(a.id));
+let lastInv=invs[0]||null;
+let unsold=lastInv?n(lastInv.total_value):0;
+$('rUnsold').textContent=money(unsold);
+$('rUnsoldDate').textContent=lastInv?('آخر جرد: '+dayName(lastInv.date)+' '+lastInv.date):'لا يوجد جرد في الفترة';
+let lines=lastInv?(db.inventory_lines||[]).filter(x=>n(x.session_id)===n(lastInv.id)):[];
+$('reportUnsoldRows').innerHTML=lines.length?lines.map(x=>`<tr><td>${x.product}</td><td>${n(x.qty)}</td><td>${money(x.sale_price)}</td><td>${money(x.value)}</td></tr>`).join(''):`<tr><td colspan="4" class="muted">لا يوجد جرد محفوظ داخل الفترة المختارة</td></tr>`;
+}
 
+let pendingDeleteAction=null;
 function askDelete(message, action){
-  if(!confirm(message)) return;
+  pendingDeleteAction=action;
+  $('deleteMessage').textContent=message||'هل تريد الحذف؟';
+  $('deleteModal').classList.add('show');
+}
+function cancelDelete(){
+  pendingDeleteAction=null;
+  $('deleteModal').classList.remove('show');
+}
+function confirmDeleteNow(){
+  if(!pendingDeleteAction){cancelDelete();return;}
+  const action=pendingDeleteAction;
+  pendingDeleteAction=null;
+  $('deleteModal').classList.remove('show');
   try{
-    const r = action();
-    if(Number(r) === 0){
-      AndroidDB.toast('لم يتم العثور على السجل أو تعذر حذفه');
-    }else{
-      AndroidDB.toast('تم الحذف');
-    }
+    const r=action();
+    if(Number(r)===0) AndroidDB.toast('لم يتم العثور على السجل أو تعذر حذفه');
+    else AndroidDB.toast('تم الحذف بنجاح');
     refresh();
   }catch(e){
     AndroidDB.toast('حدث خطأ أثناء الحذف');

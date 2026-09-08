@@ -1,8 +1,9 @@
 package com.school.canteen;
-import android.app.Activity;import android.os.Bundle;import android.webkit.*;import android.content.*;import android.net.Uri;import android.widget.Toast;import java.io.*;import java.nio.charset.StandardCharsets;
+import android.app.Activity;import android.os.Bundle;import android.webkit.*;
+import android.webkit.WebChromeClient;import android.content.*;import android.net.Uri;import android.widget.Toast;import java.io.*;import java.nio.charset.StandardCharsets;
 public class MainActivity extends Activity{
  private WebView w;private DBHelper db;private String pending="";private static final int EXP=91,IMP=92;
- @Override public void onCreate(Bundle b){super.onCreate(b);db=new DBHelper(this);w=new WebView(this);setContentView(w);WebSettings s=w.getSettings();s.setJavaScriptEnabled(true);s.setAllowFileAccess(true);s.setDomStorageEnabled(true);w.addJavascriptInterface(new Bridge(),"AndroidDB");w.loadUrl("file:///android_asset/index.html");}
+ @Override public void onCreate(Bundle b){super.onCreate(b);db=new DBHelper(this);w=new WebView(this);setContentView(w);WebSettings s=w.getSettings();s.setJavaScriptEnabled(true);s.setAllowFileAccess(true);s.setDomStorageEnabled(true);w.addJavascriptInterface(new Bridge(),"AndroidDB");w.setWebChromeClient(new WebChromeClient());w.loadUrl("file:///android_asset/index.html");}
  public class Bridge{
   @JavascriptInterface public String getAllData(){return db.getAllData();}
   @JavascriptInterface public long addProduct(int c,String n,int cp,double sp,String note){return db.addProduct(c,n,cp,sp,note);}
@@ -17,7 +18,7 @@ public class MainActivity extends Activity{
   @JavascriptInterface public long addIncome(String d,String t,double a,String n){return db.addIncome(d,t,a,n);}@JavascriptInterface public int updateIncome(long id,String d,String t,double a,String n){return db.updateIncome(id,d,t,a,n);}
   @JavascriptInterface public int deleteSimple(String t,long id){return db.deleteSimple(t,id);}
   @JavascriptInterface public long saveInventory(String j){return db.saveInventory(j);}@JavascriptInterface public int deleteInventory(long id){return db.deleteInventory(id);}
-  @JavascriptInterface public void exportBackup(){pending=db.backup();runOnUiThread(()->{Intent i=new Intent(Intent.ACTION_CREATE_DOCUMENT);i.addCategory(Intent.CATEGORY_OPENABLE);i.setType("application/json");i.putExtra(Intent.EXTRA_TITLE,"canteen-pro-v4.6-backup.json");startActivityForResult(i,EXP);});}
+  @JavascriptInterface public void exportBackup(){pending=db.backup();runOnUiThread(()->{Intent i=new Intent(Intent.ACTION_CREATE_DOCUMENT);i.addCategory(Intent.CATEGORY_OPENABLE);i.setType("application/json");i.putExtra(Intent.EXTRA_TITLE,"canteen-pro-v4.9-backup.json");startActivityForResult(i,EXP);});}
   @JavascriptInterface public void importBackup(){runOnUiThread(()->{Intent i=new Intent(Intent.ACTION_OPEN_DOCUMENT);i.addCategory(Intent.CATEGORY_OPENABLE);i.setType("application/json");startActivityForResult(i,IMP);});}
   @JavascriptInterface public void toast(String x){runOnUiThread(()->Toast.makeText(MainActivity.this,x,Toast.LENGTH_SHORT).show());}
  }

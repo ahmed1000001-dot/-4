@@ -10,14 +10,14 @@ import org.json.JSONObject;
 
 public class DBHelper extends SQLiteOpenHelper {
     private static final String DB_NAME="canteen_pro_final.db";
-    private static final int DB_VERSION=7;
+    private static final int DB_VERSION=8;
     public DBHelper(Context c){super(c,DB_NAME,null,DB_VERSION);}
 
     @Override public void onCreate(SQLiteDatabase db){
         db.execSQL("CREATE TABLE products(id INTEGER PRIMARY KEY AUTOINCREMENT, code INTEGER UNIQUE, name TEXT NOT NULL UNIQUE, carton_pieces INTEGER NOT NULL DEFAULT 1, sale_price REAL NOT NULL DEFAULT 0, active INTEGER NOT NULL DEFAULT 1, note TEXT)");
         db.execSQL("CREATE TABLE suppliers(id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL UNIQUE, phone TEXT, note TEXT, active INTEGER NOT NULL DEFAULT 1)");
         createTransactions(db);
-        seedProducts(db); seedSuppliers(db);
+        seedProducts(db);
     }
 
     private void createTransactions(SQLiteDatabase db){
@@ -38,13 +38,41 @@ public class DBHelper extends SQLiteOpenHelper {
 
     private void seedProducts(SQLiteDatabase db){
         Object[][] p={
-          {16,"شيبسي 10",15,10.0},{17,"شيبسي 5",20,5.0},{18,"ذرة 5",12,5.0},{19,"كراتيه 5",12,5.0},
-          {20,"كراتيه 10",10,10.0},{21,"دوريتوس 10 جنيه",15,10.0},{22,"دوريتوس 5 جنيه",20,5.0},
-          {23,"بسكوت 5",12,5.0},{24,"عصير 5",27,5.0},{25,"عصير 6",27,6.0},{26,"لبان 1",20,1.0},
-          {27,"مناديل 3",10,3.0},{28,"اندومي 5",40,5.0},{29,"اندومي 6 كوري",40,6.0},
-          {30,"مياه معدنية صغيرة 6",20,6.0},{31,"كولا 5",12,5.0},{32,"كولا 6",12,6.0},
-          {33,"كرانشي 10",15,10.0},{34,"كرانشي 5",20,5.0},{35,"فشار",12,5.0},{36,"كومبو",12,5.0},
-          {37,"بريك",12,5.0},{38,"فوكس",12,5.0},{39,"تايجر",20,5.0},{40,"لوليتا",60,1.0}
+          {1,"اندومي نودلز",40,5.00},
+          {2,"اندومي كوري",40,6.00},
+          {3,"اندومي عادي",48,5.00},
+          {4,"بسكوت ب5  12 قطعه",12,5.00},
+          {5,"بسكوت ب5  6 قطعه",6,5.00},
+          {6,"لبان",24,1.00},
+          {7,"لوايتا",60,1.00},
+          {8,"مصاصه",50,2.00},
+          {9,"حلاوه قهوه",200,0.50},
+          {10,"مياه",20,6.00},
+          {11,"عصير 6ج",27,6.00},
+          {12,"عصير 5 ج",27,5.00},
+          {13,"كولا 6 ج",12,6.00},
+          {14,"كولا 5 ج",12,5.00},
+          {15,"عصير 5 ج 12 قطعه",12,5.00},
+          {16,"حلاوه طوفي",200,0.50},
+          {17,"زوو",12,5.00},
+          {18,"كراتيه 5ج",15,5.00},
+          {19,"فيشار",12,5.00},
+          {20,"كمبو",15,5.00},
+          {21,"شيتوس 5 ج",10,5.00},
+          {22,"شيتوس 10 ج",12,10.00},
+          {23,"لولو كراتيه",12,5.00},
+          {24,"لابوبو كراتيه",12,5.00},
+          {25,"شبسي 10 ج",15,10.00},
+          {26,"شبسي 5 ج",20,5.00},
+          {27,"كراتيه الاصلي 5 ج",15,5.00},
+          {28,"كراتيه الاصلي 10 ج",10,10.00},
+          {29,"دوريتوس 5 ج",20,5.00},
+          {30,"دوريتوس 10 ج",15,10.00},
+          {31,"جاكوار 5 ج",12,5.00},
+          {32,"سوماتش",12,5.00},
+          {33,"تايجر 5 ج",20,5.00},
+          {34,"تايجر 10 جنيه",15,10.00},
+          {35,"مناديل",10,3.00}
         };
         for(Object[] r:p){
             ContentValues v=new ContentValues();
@@ -55,32 +83,15 @@ public class DBHelper extends SQLiteOpenHelper {
     }
 
     @Override public void onUpgrade(SQLiteDatabase db,int oldV,int newV){
-        // Upgrade from very old versions by rebuilding transaction tables.
-        if(oldV < 6){
-            String[] tx={"purchase_lines","purchase_invoices","sales","daily_sales","supplier_payments","expenses","withdrawals","other_income","daily_opening","inventory_lines","inventory_sessions"};
-            for(String t:tx) db.execSQL("DROP TABLE IF EXISTS "+t);
-            createTransactions(db);
-            oldV=6;
-        }
-        // v7: purchase invoices no longer contain a "paid with invoice" workflow.
-        // Existing amounts previously entered as paid-with-invoice are moved to supplier payments
-        // so no historical money is lost, then invoice paid is reset to zero.
-        if(oldV < 7){
-            try{
-                Cursor c=db.rawQuery("SELECT id,date,supplier_id,paid FROM purchase_invoices WHERE paid>0",null);
-                try{
-                    while(c.moveToNext()){
-                        ContentValues v=new ContentValues();
-                        v.put("date",c.getString(1));
-                        v.put("supplier_id",c.getLong(2));
-                        v.put("amount",c.getDouble(3));
-                        v.put("note","ترحيل تلقائي من مسدد مع الفاتورة - فاتورة رقم "+c.getLong(0));
-                        db.insert("supplier_payments",null,v);
-                    }
-                }finally{c.close();}
-                db.execSQL("UPDATE purchase_invoices SET paid=0");
-            }catch(Exception ignored){}
-        }
+        // v8: requested clean start. Delete ALL previous app data and rebuild
+        // the database with only the products supplied in the Excel file.
+        String[] tables={
+            "inventory_lines","inventory_sessions","purchase_lines","purchase_invoices",
+            "daily_sales","supplier_payments","expenses","withdrawals","other_income",
+            "products","suppliers","sales","daily_opening"
+        };
+        for(String t:tables) db.execSQL("DROP TABLE IF EXISTS "+t);
+        onCreate(db);
     }
 
     private double scalar(String sql,String[] args){
