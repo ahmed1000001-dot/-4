@@ -10,7 +10,7 @@ import org.json.JSONObject;
 
 public class DBHelper extends SQLiteOpenHelper {
     private static final String DB_NAME="canteen_pro_final.db";
-    private static final int DB_VERSION=8;
+    private static final int DB_VERSION=9;
     public DBHelper(Context c){super(c,DB_NAME,null,DB_VERSION);}
 
     @Override public void onCreate(SQLiteDatabase db){
@@ -25,6 +25,7 @@ public class DBHelper extends SQLiteOpenHelper {
         db.execSQL("CREATE TABLE purchase_lines(id INTEGER PRIMARY KEY AUTOINCREMENT, invoice_id INTEGER NOT NULL, product_id INTEGER NOT NULL, cartons REAL NOT NULL DEFAULT 0, carton_pieces INTEGER NOT NULL DEFAULT 1, sale_price REAL NOT NULL DEFAULT 0, purchase_total REAL NOT NULL DEFAULT 0, pieces INTEGER NOT NULL DEFAULT 0, expected_sales REAL NOT NULL DEFAULT 0, expected_profit REAL NOT NULL DEFAULT 0, profit_pct REAL NOT NULL DEFAULT 0)");
         db.execSQL("CREATE TABLE daily_sales(id INTEGER PRIMARY KEY AUTOINCREMENT, date TEXT NOT NULL UNIQUE, total REAL NOT NULL DEFAULT 0, note TEXT)");
         db.execSQL("CREATE TABLE supplier_payments(id INTEGER PRIMARY KEY AUTOINCREMENT, date TEXT NOT NULL, supplier_id INTEGER NOT NULL, amount REAL NOT NULL DEFAULT 0, note TEXT)");
+        db.execSQL("CREATE TABLE supplier_returns(id INTEGER PRIMARY KEY AUTOINCREMENT, date TEXT NOT NULL, supplier_id INTEGER NOT NULL, amount REAL NOT NULL DEFAULT 0, note TEXT)");
         db.execSQL("CREATE TABLE expenses(id INTEGER PRIMARY KEY AUTOINCREMENT, date TEXT NOT NULL, type TEXT NOT NULL, amount REAL NOT NULL DEFAULT 0, note TEXT)");
         db.execSQL("CREATE TABLE withdrawals(id INTEGER PRIMARY KEY AUTOINCREMENT, date TEXT NOT NULL, person TEXT NOT NULL, kind TEXT NOT NULL DEFAULT 'نقدي', amount REAL NOT NULL DEFAULT 0, note TEXT)");
         db.execSQL("CREATE TABLE other_income(id INTEGER PRIMARY KEY AUTOINCREMENT, date TEXT NOT NULL, type TEXT NOT NULL, amount REAL NOT NULL DEFAULT 0, note TEXT)");
@@ -83,15 +84,20 @@ public class DBHelper extends SQLiteOpenHelper {
     }
 
     @Override public void onUpgrade(SQLiteDatabase db,int oldV,int newV){
-        // v8: requested clean start. Delete ALL previous app data and rebuild
-        // the database with only the products supplied in the Excel file.
-        String[] tables={
-            "inventory_lines","inventory_sessions","purchase_lines","purchase_invoices",
-            "daily_sales","supplier_payments","expenses","withdrawals","other_income",
-            "products","suppliers","sales","daily_opening"
-        };
-        for(String t:tables) db.execSQL("DROP TABLE IF EXISTS "+t);
-        onCreate(db);
+        // v8 intentionally rebuilt old databases once. Preserve that behavior
+        // for pre-v8 installations, but never wipe a current v8 database.
+        if(oldV<8){
+            String[] tables={
+                "inventory_lines","inventory_sessions","purchase_lines","purchase_invoices",
+                "daily_sales","supplier_payments","expenses","withdrawals","other_income",
+                "products","suppliers","sales","daily_opening"
+            };
+            for(String t:tables) db.execSQL("DROP TABLE IF EXISTS "+t);
+            onCreate(db);
+            return;
+        }
+        // v9: add supplier returns without deleting existing business data.
+        if(oldV<9) db.execSQL("CREATE TABLE IF NOT EXISTS supplier_returns(id INTEGER PRIMARY KEY AUTOINCREMENT, date TEXT NOT NULL, supplier_id INTEGER NOT NULL, amount REAL NOT NULL DEFAULT 0, note TEXT)");
     }
 
     private double scalar(String sql,String[] args){
@@ -166,6 +172,9 @@ public class DBHelper extends SQLiteOpenHelper {
 
     public long addPayment(String d,long sid,double a,String n){ContentValues v=new ContentValues();v.put("date",d);v.put("supplier_id",sid);v.put("amount",a);v.put("note",n);return getWritableDatabase().insert("supplier_payments",null,v);}
     public int updatePayment(long id,String d,long sid,double a,String n){ContentValues v=new ContentValues();v.put("date",d);v.put("supplier_id",sid);v.put("amount",a);v.put("note",n);return getWritableDatabase().update("supplier_payments",v,"id=?",new String[]{""+id});}
+    public long addSupplierReturn(String d,long sid,double a,String n){ContentValues v=new ContentValues();v.put("date",d);v.put("supplier_id",sid);v.put("amount",a);v.put("note",n);return getWritableDatabase().insert("supplier_returns",null,v);}
+    public int updateSupplierReturn(long id,String d,long sid,double a,String n){ContentValues v=new ContentValues();v.put("date",d);v.put("supplier_id",sid);v.put("amount",a);v.put("note",n);return getWritableDatabase().update("supplier_returns",v,"id=?",new String[]{""+id});}
+    public int deleteSupplierReturn(long id){return getWritableDatabase().delete("supplier_returns","id=?",new String[]{""+id});}
 
     private long addSimple(String table,String date,String key,String val,double amount,String note){
         ContentValues v=new ContentValues();v.put("date",date);v.put(key,val);v.put("amount",amount);v.put("note",note);
@@ -226,11 +235,12 @@ public class DBHelper extends SQLiteOpenHelper {
         try{
             JSONObject o=new JSONObject();
             o.put("products",query("SELECT id,code,name,carton_pieces,sale_price,active,note FROM products ORDER BY active DESC,code",null));
-            o.put("suppliers",query("SELECT s.*,COALESCE((SELECT SUM(invoice_total) FROM purchase_invoices i WHERE i.supplier_id=s.id),0) invoices_total,0 invoice_paid,COALESCE((SELECT SUM(amount) FROM supplier_payments p WHERE p.supplier_id=s.id),0) later_paid FROM suppliers s ORDER BY s.name",null));
+            o.put("suppliers",query("SELECT s.*,COALESCE((SELECT SUM(invoice_total) FROM purchase_invoices i WHERE i.supplier_id=s.id),0) invoices_total,0 invoice_paid,COALESCE((SELECT SUM(amount) FROM supplier_payments p WHERE p.supplier_id=s.id),0) later_paid,COALESCE((SELECT SUM(amount) FROM supplier_returns r WHERE r.supplier_id=s.id),0) returns_total FROM suppliers s ORDER BY s.name",null));
             o.put("purchases",query("SELECT i.id,i.date,i.supplier_id,s.name supplier,i.invoice_total,i.paid,(i.invoice_total-i.paid) invoice_remaining,i.note,COALESCE((SELECT SUM(expected_sales) FROM purchase_lines l WHERE l.invoice_id=i.id),0) expected_sales,COALESCE((SELECT SUM(expected_profit) FROM purchase_lines l WHERE l.invoice_id=i.id),0) expected_profit FROM purchase_invoices i JOIN suppliers s ON s.id=i.supplier_id ORDER BY i.date DESC,i.id DESC",null));
             o.put("purchase_lines",query("SELECT l.*,p.name product,p.code FROM purchase_lines l JOIN products p ON p.id=l.product_id ORDER BY l.id",null));
             o.put("daily_sales",query("SELECT * FROM daily_sales ORDER BY date DESC,id DESC",null));
             o.put("payments",query("SELECT p.*,s.name supplier FROM supplier_payments p JOIN suppliers s ON s.id=p.supplier_id ORDER BY p.date DESC,p.id DESC",null));
+            o.put("supplier_returns",query("SELECT r.*,s.name supplier FROM supplier_returns r JOIN suppliers s ON s.id=r.supplier_id ORDER BY r.date DESC,r.id DESC",null));
             o.put("expenses",query("SELECT * FROM expenses ORDER BY date DESC,id DESC",null));
             o.put("withdrawals",query("SELECT * FROM withdrawals ORDER BY date DESC,id DESC",null));
             o.put("income",query("SELECT * FROM other_income ORDER BY date DESC,id DESC",null));
@@ -245,7 +255,7 @@ public class DBHelper extends SQLiteOpenHelper {
         SQLiteDatabase db=getWritableDatabase();db.beginTransaction();
         try{
             JSONObject o=new JSONObject(json);
-            String[] t={"inventory_lines","inventory_sessions","purchase_lines","purchase_invoices","daily_sales","supplier_payments","expenses","withdrawals","other_income","products","suppliers"};
+            String[] t={"inventory_lines","inventory_sessions","purchase_lines","purchase_invoices","daily_sales","supplier_payments","supplier_returns","expenses","withdrawals","other_income","products","suppliers"};
             for(String x:t)db.delete(x,null,null);
             insertArray(db,"products",o.getJSONArray("products"),new String[]{"id","code","name","carton_pieces","sale_price","active","note"});
             insertArray(db,"suppliers",o.getJSONArray("suppliers"),new String[]{"id","name","phone","note","active"});
@@ -253,6 +263,8 @@ public class DBHelper extends SQLiteOpenHelper {
             insertArray(db,"purchase_lines",o.getJSONArray("purchase_lines"),new String[]{"id","invoice_id","product_id","cartons","carton_pieces","sale_price","purchase_total","pieces","expected_sales","expected_profit","profit_pct"});
             insertArray(db,"daily_sales",o.getJSONArray("daily_sales"),new String[]{"id","date","total","note"});
             insertArray(db,"supplier_payments",o.getJSONArray("payments"),new String[]{"id","date","supplier_id","amount","note"});
+            JSONArray returns=o.optJSONArray("supplier_returns");
+            if(returns!=null) insertArray(db,"supplier_returns",returns,new String[]{"id","date","supplier_id","amount","note"});
             insertArray(db,"expenses",o.getJSONArray("expenses"),new String[]{"id","date","type","amount","note"});
             insertArray(db,"withdrawals",o.getJSONArray("withdrawals"),new String[]{"id","date","person","kind","amount","note"});
             insertArray(db,"other_income",o.getJSONArray("income"),new String[]{"id","date","type","amount","note"});
