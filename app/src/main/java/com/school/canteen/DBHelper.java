@@ -7,10 +7,15 @@ import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
 import org.json.JSONArray;
 import org.json.JSONObject;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.Set;
 
 public class DBHelper extends SQLiteOpenHelper {
     private static final String DB_NAME="canteen_pro_final.db";
-    private static final int DB_VERSION=9;
+    private static final int DB_VERSION=10;
     public DBHelper(Context c){super(c,DB_NAME,null,DB_VERSION);}
 
     @Override public void onCreate(SQLiteDatabase db){
@@ -26,11 +31,16 @@ public class DBHelper extends SQLiteOpenHelper {
         db.execSQL("CREATE TABLE daily_sales(id INTEGER PRIMARY KEY AUTOINCREMENT, date TEXT NOT NULL UNIQUE, total REAL NOT NULL DEFAULT 0, note TEXT)");
         db.execSQL("CREATE TABLE supplier_payments(id INTEGER PRIMARY KEY AUTOINCREMENT, date TEXT NOT NULL, supplier_id INTEGER NOT NULL, amount REAL NOT NULL DEFAULT 0, note TEXT)");
         db.execSQL("CREATE TABLE supplier_returns(id INTEGER PRIMARY KEY AUTOINCREMENT, date TEXT NOT NULL, supplier_id INTEGER NOT NULL, amount REAL NOT NULL DEFAULT 0, note TEXT)");
+        createSupplierReturnLines(db);
         db.execSQL("CREATE TABLE expenses(id INTEGER PRIMARY KEY AUTOINCREMENT, date TEXT NOT NULL, type TEXT NOT NULL, amount REAL NOT NULL DEFAULT 0, note TEXT)");
         db.execSQL("CREATE TABLE withdrawals(id INTEGER PRIMARY KEY AUTOINCREMENT, date TEXT NOT NULL, person TEXT NOT NULL, kind TEXT NOT NULL DEFAULT 'نقدي', amount REAL NOT NULL DEFAULT 0, note TEXT)");
         db.execSQL("CREATE TABLE other_income(id INTEGER PRIMARY KEY AUTOINCREMENT, date TEXT NOT NULL, type TEXT NOT NULL, amount REAL NOT NULL DEFAULT 0, note TEXT)");
         db.execSQL("CREATE TABLE inventory_sessions(id INTEGER PRIMARY KEY AUTOINCREMENT, date TEXT NOT NULL, from_date TEXT, to_date TEXT, note TEXT)");
         db.execSQL("CREATE TABLE inventory_lines(id INTEGER PRIMARY KEY AUTOINCREMENT, session_id INTEGER NOT NULL, product_id INTEGER NOT NULL, qty INTEGER NOT NULL DEFAULT 0, sale_price REAL NOT NULL DEFAULT 0, value REAL NOT NULL DEFAULT 0)");
+    }
+
+    private void createSupplierReturnLines(SQLiteDatabase db){
+        db.execSQL("CREATE TABLE IF NOT EXISTS supplier_return_lines(id INTEGER PRIMARY KEY AUTOINCREMENT, return_id INTEGER NOT NULL, purchase_line_id INTEGER NOT NULL, product_id INTEGER NOT NULL, qty INTEGER NOT NULL DEFAULT 0, unit_cost REAL NOT NULL DEFAULT 0, unit_sale_price REAL NOT NULL DEFAULT 0, unit_expected_profit REAL NOT NULL DEFAULT 0)");
     }
 
     private void seedSuppliers(SQLiteDatabase db){
@@ -98,10 +108,15 @@ public class DBHelper extends SQLiteOpenHelper {
         }
         // v9: add supplier returns without deleting existing business data.
         if(oldV<9) db.execSQL("CREATE TABLE IF NOT EXISTS supplier_returns(id INTEGER PRIMARY KEY AUTOINCREMENT, date TEXT NOT NULL, supplier_id INTEGER NOT NULL, amount REAL NOT NULL DEFAULT 0, note TEXT)");
+        // v10: keep old amount-only return headers and add item-level details.
+        if(oldV<10) createSupplierReturnLines(db);
     }
 
     private double scalar(String sql,String[] args){
-        Cursor c=getReadableDatabase().rawQuery(sql,args);
+        return scalar(getReadableDatabase(),sql,args);
+    }
+    private double scalar(SQLiteDatabase db,String sql,String[] args){
+        Cursor c=db.rawQuery(sql,args);
         try{return c.moveToFirst()?c.getDouble(0):0;}finally{c.close();}
     }
 
@@ -153,9 +168,96 @@ public class DBHelper extends SQLiteOpenHelper {
             db.setTransactionSuccessful(); return iid;
         }catch(Exception e){return -1;}finally{db.endTransaction();}
     }
+
+    private static final class ExistingPurchaseLine {
+        final long productId;
+        final int cartonPieces;
+        final double salePrice;
+        final int returnedQty;
+        ExistingPurchaseLine(long productId,int cartonPieces,double salePrice,int returnedQty){
+            this.productId=productId;this.cartonPieces=cartonPieces;this.salePrice=salePrice;this.returnedQty=returnedQty;
+        }
+    }
+
+    public int updatePurchaseInvoice(long id,String json){
+        SQLiteDatabase db=getWritableDatabase();db.beginTransaction();
+        try{
+            Cursor invoice=db.rawQuery("SELECT supplier_id FROM purchase_invoices WHERE id=?",new String[]{""+id});
+            if(!invoice.moveToFirst()){invoice.close();return 0;}
+            long oldSupplierId=invoice.getLong(0);invoice.close();
+
+            JSONObject o=new JSONObject(json);JSONArray lines=o.getJSONArray("lines");
+            String date=o.getString("date");long supplierId=o.getLong("supplier_id");
+            if(date.trim().isEmpty()||supplierId<=0||lines.length()==0)return -1;
+            if(scalar(db,"SELECT COUNT(*) FROM suppliers WHERE id=?",new String[]{""+supplierId})==0)return -1;
+
+            Map<Long,ExistingPurchaseLine> existing=new LinkedHashMap<>();
+            Cursor oldLines=db.rawQuery("SELECT l.id,l.product_id,l.carton_pieces,l.sale_price,COALESCE(SUM(r.qty),0) returned_qty FROM purchase_lines l LEFT JOIN supplier_return_lines r ON r.purchase_line_id=l.id WHERE l.invoice_id=? GROUP BY l.id,l.product_id,l.carton_pieces,l.sale_price",new String[]{""+id});
+            while(oldLines.moveToNext())existing.put(oldLines.getLong(0),new ExistingPurchaseLine(oldLines.getLong(1),oldLines.getInt(2),oldLines.getDouble(3),oldLines.getInt(4)));
+            oldLines.close();
+
+            int invoiceReturnedQty=(int)scalar(db,"SELECT COALESCE(SUM(r.qty),0) FROM supplier_return_lines r JOIN purchase_lines l ON l.id=r.purchase_line_id WHERE l.invoice_id=?",new String[]{""+id});
+            if(invoiceReturnedQty>0&&oldSupplierId!=supplierId)return -2;
+
+            double invoiceTotal=0;Set<Long> keptLineIds=new HashSet<>();
+            for(int i=0;i<lines.length();i++){
+                JSONObject x=lines.getJSONObject(i);long lineId=x.optLong("line_id",0);long productId=x.getLong("product_id");
+                double cartons=x.getDouble("cartons"),purchaseTotal=x.getDouble("purchase_total");
+                if(productId<=0||cartons<=0||purchaseTotal<=0)return -1;
+
+                ExistingPurchaseLine previous=null;int cartonPieces;double salePrice;
+                if(lineId>0){
+                    previous=existing.get(lineId);if(previous==null||!keptLineIds.add(lineId))return -1;
+                    if(previous.returnedQty>0&&previous.productId!=productId)return -3;
+                }
+                if(previous!=null&&previous.productId==productId){
+                    cartonPieces=previous.cartonPieces;salePrice=previous.salePrice;
+                }else{
+                    Cursor product=db.rawQuery("SELECT carton_pieces,sale_price FROM products WHERE id=?",new String[]{""+productId});
+                    if(!product.moveToFirst()){product.close();return -1;}
+                    cartonPieces=product.getInt(0);salePrice=product.getDouble(1);product.close();
+                }
+                int pieces=(int)Math.round(cartons*cartonPieces);
+                if(pieces<=0)return -1;
+                if(previous!=null&&pieces<previous.returnedQty)return -4;
+
+                double expectedSales=pieces*salePrice,expectedProfit=expectedSales-purchaseTotal;
+                double profitPct=purchaseTotal>0?expectedProfit/purchaseTotal*100.0:0;
+                ContentValues row=new ContentValues();row.put("product_id",productId);row.put("cartons",cartons);
+                row.put("carton_pieces",cartonPieces);row.put("sale_price",salePrice);row.put("purchase_total",purchaseTotal);
+                row.put("pieces",pieces);row.put("expected_sales",expectedSales);row.put("expected_profit",expectedProfit);row.put("profit_pct",profitPct);
+                if(lineId>0){
+                    if(db.update("purchase_lines",row,"id=? AND invoice_id=?",new String[]{""+lineId,""+id})!=1)return -1;
+                    if(previous.returnedQty>0){
+                        ContentValues snapshot=new ContentValues();snapshot.put("unit_cost",purchaseTotal/pieces);
+                        snapshot.put("unit_sale_price",salePrice);snapshot.put("unit_expected_profit",expectedProfit/pieces);
+                        db.update("supplier_return_lines",snapshot,"purchase_line_id=?",new String[]{""+lineId});
+                    }
+                }else{
+                    row.put("invoice_id",id);db.insertOrThrow("purchase_lines",null,row);
+                }
+                invoiceTotal+=purchaseTotal;
+            }
+
+            for(Map.Entry<Long,ExistingPurchaseLine> entry:existing.entrySet()){
+                if(keptLineIds.contains(entry.getKey()))continue;
+                if(entry.getValue().returnedQty>0)return -5;
+                db.delete("purchase_lines","id=? AND invoice_id=?",new String[]{""+entry.getKey(),""+id});
+            }
+
+            ContentValues header=new ContentValues();header.put("date",date);header.put("supplier_id",supplierId);
+            header.put("invoice_total",invoiceTotal);header.put("note",o.optString("note",""));
+            if(db.update("purchase_invoices",header,"id=?",new String[]{""+id})!=1)return -1;
+            db.setTransactionSuccessful();return 1;
+        }catch(Exception e){return -1;}finally{db.endTransaction();}
+    }
+
     public int deletePurchaseInvoice(long id){
         SQLiteDatabase db=getWritableDatabase();db.beginTransaction();
-        try{db.delete("purchase_lines","invoice_id=?",new String[]{""+id});int r=db.delete("purchase_invoices","id=?",new String[]{""+id});db.setTransactionSuccessful();return r;}finally{db.endTransaction();}
+        try{
+            if(scalar(db,"SELECT COUNT(*) FROM supplier_return_lines rl JOIN purchase_lines pl ON pl.id=rl.purchase_line_id WHERE pl.invoice_id=?",new String[]{""+id})>0)return -1;
+            db.delete("purchase_lines","invoice_id=?",new String[]{""+id});int r=db.delete("purchase_invoices","id=?",new String[]{""+id});db.setTransactionSuccessful();return r;
+        }finally{db.endTransaction();}
     }
 
     public long saveDailySale(long id,String date,double total,String note){
@@ -172,9 +274,73 @@ public class DBHelper extends SQLiteOpenHelper {
 
     public long addPayment(String d,long sid,double a,String n){ContentValues v=new ContentValues();v.put("date",d);v.put("supplier_id",sid);v.put("amount",a);v.put("note",n);return getWritableDatabase().insert("supplier_payments",null,v);}
     public int updatePayment(long id,String d,long sid,double a,String n){ContentValues v=new ContentValues();v.put("date",d);v.put("supplier_id",sid);v.put("amount",a);v.put("note",n);return getWritableDatabase().update("supplier_payments",v,"id=?",new String[]{""+id});}
-    public long addSupplierReturn(String d,long sid,double a,String n){ContentValues v=new ContentValues();v.put("date",d);v.put("supplier_id",sid);v.put("amount",a);v.put("note",n);return getWritableDatabase().insert("supplier_returns",null,v);}
-    public int updateSupplierReturn(long id,String d,long sid,double a,String n){ContentValues v=new ContentValues();v.put("date",d);v.put("supplier_id",sid);v.put("amount",a);v.put("note",n);return getWritableDatabase().update("supplier_returns",v,"id=?",new String[]{""+id});}
-    public int deleteSupplierReturn(long id){return getWritableDatabase().delete("supplier_returns","id=?",new String[]{""+id});}
+    private ArrayList<ContentValues> validateSupplierReturnLines(SQLiteDatabase db,JSONArray lines,long supplierId,long returnId){
+        if(lines==null||lines.length()==0||supplierId<=0)return null;
+        LinkedHashMap<Long,Integer> quantities=new LinkedHashMap<>();
+        try{
+            for(int i=0;i<lines.length();i++){
+                JSONObject item=lines.getJSONObject(i);long purchaseLineId=item.getLong("purchase_line_id");double rawQty=item.getDouble("qty");int qty=(int)rawQty;
+                if(purchaseLineId<=0||qty<=0||Math.abs(rawQty-qty)>0.000001)return null;
+                Integer old=quantities.get(purchaseLineId);quantities.put(purchaseLineId,(old==null?0:old)+qty);
+            }
+            ArrayList<ContentValues> details=new ArrayList<>();
+            for(Map.Entry<Long,Integer> entry:quantities.entrySet()){
+                long purchaseLineId=entry.getKey();int qty=entry.getValue();
+                Cursor c=db.rawQuery("SELECT l.product_id,l.pieces,l.purchase_total,l.sale_price,l.expected_profit,i.supplier_id FROM purchase_lines l JOIN purchase_invoices i ON i.id=l.invoice_id WHERE l.id=?",new String[]{""+purchaseLineId});
+                try{
+                    if(!c.moveToFirst()||c.getLong(5)!=supplierId)return null;
+                    int pieces=c.getInt(1);if(pieces<=0)return null;
+                    String[] args=returnId>0?new String[]{""+purchaseLineId,""+returnId}:new String[]{""+purchaseLineId};
+                    String where=returnId>0?"purchase_line_id=? AND return_id<>?":"purchase_line_id=?";
+                    int alreadyReturned=(int)scalar(db,"SELECT COALESCE(SUM(qty),0) FROM supplier_return_lines WHERE "+where,args);
+                    if(qty>pieces-alreadyReturned)return null;
+                    ContentValues detail=new ContentValues();
+                    detail.put("purchase_line_id",purchaseLineId);detail.put("product_id",c.getLong(0));detail.put("qty",qty);
+                    detail.put("unit_cost",c.getDouble(2)/pieces);detail.put("unit_sale_price",c.getDouble(3));detail.put("unit_expected_profit",c.getDouble(4)/pieces);
+                    details.add(detail);
+                }finally{c.close();}
+            }
+            return details;
+        }catch(Exception e){return null;}
+    }
+
+    private void insertSupplierReturnLines(SQLiteDatabase db,long returnId,ArrayList<ContentValues> lines){
+        for(ContentValues detail:lines){ContentValues row=new ContentValues(detail);row.put("return_id",returnId);db.insertOrThrow("supplier_return_lines",null,row);}
+    }
+
+    private ContentValues supplierReturnValues(JSONObject o)throws Exception{
+        ContentValues values=new ContentValues();values.put("date",o.getString("date"));values.put("supplier_id",o.getLong("supplier_id"));
+        values.put("amount",o.getDouble("amount"));values.put("note",o.optString("note",""));return values;
+    }
+
+    public long addSupplierReturn(String json){
+        SQLiteDatabase db=getWritableDatabase();db.beginTransaction();
+        try{
+            JSONObject o=new JSONObject(json);long supplierId=o.getLong("supplier_id");double amount=o.getDouble("amount");
+            if(amount<=0)return -1;
+            ArrayList<ContentValues> lines=validateSupplierReturnLines(db,o.optJSONArray("lines"),supplierId,0);if(lines==null)return -1;
+            long id=db.insertOrThrow("supplier_returns",null,supplierReturnValues(o));insertSupplierReturnLines(db,id,lines);db.setTransactionSuccessful();return id;
+        }catch(Exception e){return -1;}finally{db.endTransaction();}
+    }
+
+    public int updateSupplierReturn(long id,String json){
+        SQLiteDatabase db=getWritableDatabase();db.beginTransaction();
+        try{
+            if(scalar(db,"SELECT COUNT(*) FROM supplier_returns WHERE id=?",new String[]{""+id})==0)return -1;
+            JSONObject o=new JSONObject(json);long supplierId=o.getLong("supplier_id");double amount=o.getDouble("amount");
+            if(amount<=0)return -1;
+            ArrayList<ContentValues> lines=validateSupplierReturnLines(db,o.optJSONArray("lines"),supplierId,id);if(lines==null)return -1;
+            int updated=db.update("supplier_returns",supplierReturnValues(o),"id=?",new String[]{""+id});
+            if(updated<=0)return -1;
+            db.delete("supplier_return_lines","return_id=?",new String[]{""+id});insertSupplierReturnLines(db,id,lines);db.setTransactionSuccessful();return updated;
+        }catch(Exception e){return -1;}finally{db.endTransaction();}
+    }
+
+    public int deleteSupplierReturn(long id){
+        SQLiteDatabase db=getWritableDatabase();db.beginTransaction();
+        try{db.delete("supplier_return_lines","return_id=?",new String[]{""+id});int deleted=db.delete("supplier_returns","id=?",new String[]{""+id});db.setTransactionSuccessful();return deleted;}
+        finally{db.endTransaction();}
+    }
 
     private long addSimple(String table,String date,String key,String val,double amount,String note){
         ContentValues v=new ContentValues();v.put("date",date);v.put(key,val);v.put("amount",amount);v.put("note",note);
@@ -240,7 +406,9 @@ public class DBHelper extends SQLiteOpenHelper {
             o.put("purchase_lines",query("SELECT l.*,p.name product,p.code FROM purchase_lines l JOIN products p ON p.id=l.product_id ORDER BY l.id",null));
             o.put("daily_sales",query("SELECT * FROM daily_sales ORDER BY date DESC,id DESC",null));
             o.put("payments",query("SELECT p.*,s.name supplier FROM supplier_payments p JOIN suppliers s ON s.id=p.supplier_id ORDER BY p.date DESC,p.id DESC",null));
-            o.put("supplier_returns",query("SELECT r.*,s.name supplier FROM supplier_returns r JOIN suppliers s ON s.id=r.supplier_id ORDER BY r.date DESC,r.id DESC",null));
+            o.put("supplier_returns",query("SELECT r.*,s.name supplier,COUNT(rl.id) line_count FROM supplier_returns r JOIN suppliers s ON s.id=r.supplier_id LEFT JOIN supplier_return_lines rl ON rl.return_id=r.id GROUP BY r.id,s.name ORDER BY r.date DESC,r.id DESC",null));
+            o.put("supplier_return_lines",query("SELECT rl.*,r.date,r.supplier_id,p.name product,p.code,pi.date purchase_date FROM supplier_return_lines rl JOIN supplier_returns r ON r.id=rl.return_id JOIN products p ON p.id=rl.product_id JOIN purchase_lines pl ON pl.id=rl.purchase_line_id JOIN purchase_invoices pi ON pi.id=pl.invoice_id ORDER BY rl.id",null));
+            o.put("return_batches",query("SELECT l.id purchase_line_id,l.invoice_id,i.date purchase_date,i.supplier_id,s.name supplier,l.product_id,p.name product,p.code,l.pieces purchased_qty,COALESCE((SELECT SUM(rl.qty) FROM supplier_return_lines rl WHERE rl.purchase_line_id=l.id),0) returned_qty,CASE WHEN l.pieces>0 THEN l.purchase_total/l.pieces ELSE 0 END unit_cost,l.sale_price unit_sale_price,CASE WHEN l.pieces>0 THEN l.expected_profit/l.pieces ELSE 0 END unit_expected_profit FROM purchase_lines l JOIN purchase_invoices i ON i.id=l.invoice_id JOIN suppliers s ON s.id=i.supplier_id JOIN products p ON p.id=l.product_id ORDER BY i.date DESC,l.id DESC",null));
             o.put("expenses",query("SELECT * FROM expenses ORDER BY date DESC,id DESC",null));
             o.put("withdrawals",query("SELECT * FROM withdrawals ORDER BY date DESC,id DESC",null));
             o.put("income",query("SELECT * FROM other_income ORDER BY date DESC,id DESC",null));
@@ -255,7 +423,7 @@ public class DBHelper extends SQLiteOpenHelper {
         SQLiteDatabase db=getWritableDatabase();db.beginTransaction();
         try{
             JSONObject o=new JSONObject(json);
-            String[] t={"inventory_lines","inventory_sessions","purchase_lines","purchase_invoices","daily_sales","supplier_payments","supplier_returns","expenses","withdrawals","other_income","products","suppliers"};
+            String[] t={"supplier_return_lines","inventory_lines","inventory_sessions","purchase_lines","purchase_invoices","daily_sales","supplier_payments","supplier_returns","expenses","withdrawals","other_income","products","suppliers"};
             for(String x:t)db.delete(x,null,null);
             insertArray(db,"products",o.getJSONArray("products"),new String[]{"id","code","name","carton_pieces","sale_price","active","note"});
             insertArray(db,"suppliers",o.getJSONArray("suppliers"),new String[]{"id","name","phone","note","active"});
@@ -265,6 +433,8 @@ public class DBHelper extends SQLiteOpenHelper {
             insertArray(db,"supplier_payments",o.getJSONArray("payments"),new String[]{"id","date","supplier_id","amount","note"});
             JSONArray returns=o.optJSONArray("supplier_returns");
             if(returns!=null) insertArray(db,"supplier_returns",returns,new String[]{"id","date","supplier_id","amount","note"});
+            JSONArray returnLines=o.optJSONArray("supplier_return_lines");
+            if(returnLines!=null) insertArray(db,"supplier_return_lines",returnLines,new String[]{"id","return_id","purchase_line_id","product_id","qty","unit_cost","unit_sale_price","unit_expected_profit"});
             insertArray(db,"expenses",o.getJSONArray("expenses"),new String[]{"id","date","type","amount","note"});
             insertArray(db,"withdrawals",o.getJSONArray("withdrawals"),new String[]{"id","date","person","kind","amount","note"});
             insertArray(db,"other_income",o.getJSONArray("income"),new String[]{"id","date","type","amount","note"});

@@ -11,7 +11,7 @@
 7) انتظر حتى تصبح العملية باللون الأخضر.
 8) افتح نتيجة الـ Run.
 9) في قسم Artifacts ستجد:
-   Canteen-Pro-v5.0-APK
+   Canteen-Pro-v5.2-APK
 10) نزّل الـ Artifact وفك الضغط، ستجد:
    app-debug.apk
 11) انقل app-debug.apk إلى Samsung A12 وثبته.

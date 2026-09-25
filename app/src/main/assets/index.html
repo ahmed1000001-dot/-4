@@ -1,5 +1,5 @@
 <!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Canteen Pro v5.0</title><style>
+<title>Canteen Pro v5.2</title><style>
 *{box-sizing:border-box}body{margin:0;font-family:Tahoma,Arial,sans-serif;background:#f4f5f7;color:#171717}header{background:#161616;color:#fff;padding:14px 16px;position:sticky;top:0;z-index:5}header h1{font-size:20px;margin:0}header small{color:#ccc}
 main{max-width:1100px;margin:auto;padding:12px 12px 90px}.view{display:none}.view.active{display:block}.panel,.card{background:#fff;border:1px solid #ddd;border-radius:14px;padding:13px;margin-bottom:10px}.panel h2{font-size:17px;margin:0 0 12px}.panel h3{font-size:15px;margin:14px 0 8px}
 .cards{display:grid;grid-template-columns:repeat(2,1fr);gap:9px}.card span{display:block;color:#666;font-size:12px}.card b{display:block;font-size:21px;margin-top:5px}.wide{grid-column:1/-1}
@@ -13,7 +13,7 @@ button{font:inherit;font-weight:bold;border:1px solid #ccc;border-radius:9px;pad
 .delmodal{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center;z-index:99999;padding:20px}
 .delmodal.show{display:flex}.delbox{background:#fff;border-radius:16px;padding:20px;max-width:360px;width:100%;box-shadow:0 12px 40px rgba(0,0,0,.25);text-align:center}
 .delbox h3{margin:0 0 10px}.delbox p{margin:0 0 18px}.delactions{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-</style></head><body><header><h1>Canteen Pro</h1><small>الإصدار v5.0 — حساب الشركاء ومرتجعات المورد</small></header><main>
+</style></head><body><header><h1>Canteen Pro</h1><small>الإصدار v5.2 — تعديل فواتير الشراء والمرتجعات بالصنف</small></header><main>
 
 <section id="home" class="view active">
 <div class="cards">
@@ -26,11 +26,11 @@ button{font:inherit;font-weight:bold;border:1px solid #ccc;border-radius:9px;pad
 <div class="card"><span>إيرادات أخرى</span><b id="dIncome">0</b></div>
 <div class="card"><span>الربح المتوقع بعد المسحوبات</span><b id="dExpectedNet">0</b></div>
 </div>
-<div class="panel"><h2>طريقة الحساب</h2><div class="muted">الربح المتوقع لكل توريدة = قيمة البيع المتوقعة − إجمالي شراء الصنف. الربح القابل للتوزيع بين الشريكين = الربح المتوقع + الإيرادات الأخرى − المصروفات. بعد التقسيم مناصفة، تخصم مسحوبات كل شريك من نصيبه.</div></div>
+<div class="panel"><h2>طريقة الحساب</h2><div class="muted">الربح المتوقع لكل توريدة = قيمة البيع المتوقعة − تكلفة الشراء. عند تسجيل مرتجع المورد بالصنف والكمية يُستبعد هامش هذه الكمية من الأرباح. مبلغ إشعار المورد يخفض رصيده ولا يُضاف إلى المبيعات أو الإيرادات.</div><p id="homeReturnWarning" class="warn"></p></div>
 </section>
 
 <section id="partners" class="view">
-<div class="panel"><h2>حساب الشركاء</h2><p class="muted">الربح القابل للتوزيع = الربح المتوقع + الإيرادات الأخرى − المصروفات. يتم تقسيمه مناصفة، ثم تُخصم مسحوبات كل شريك من نصيبه هو فقط.</p>
+<div class="panel"><h2>حساب الشركاء</h2><p class="muted">الربح القابل للتوزيع = ربح التوريدات بعد استبعاد هامش الأصناف المرتجعة + الإيرادات الأخرى − المصروفات. يتم تقسيمه مناصفة، ثم تُخصم مسحوبات كل شريك من نصيبه هو فقط.</p><p id="partnerReturnWarning" class="warn"></p>
 <div class="cards"><div class="card"><span>الربح القابل للتوزيع</span><b id="partnerProfit">0</b></div><div class="card"><span>إجمالي مسحوبات الشريكين</span><b id="partnerWithdrawals">0</b></div></div></div>
 <div class="panel"><h2>نصيب كل شريك</h2><div class="tablewrap"><table class="grid"><thead><tr><th>الشريك</th><th>نصيبه من الربح</th><th>إجمالي مسحوباته</th><th>المتبقي له</th></tr></thead><tbody><tr><td>محمد إبراهيم</td><td id="partnerMohamedShare">0</td><td id="partnerMohamedWithdrawn">0</td><td id="partnerMohamedRemaining">0</td></tr><tr><td>أحمد عبدالعظيم</td><td id="partnerAhmedShare">0</td><td id="partnerAhmedWithdrawn">0</td><td id="partnerAhmedRemaining">0</td></tr></tbody></table></div></div>
 </section>
@@ -41,10 +41,10 @@ button{font:inherit;font-weight:bold;border:1px solid #ccc;border-radius:9px;pad
 </section>
 
 <section id="purchases" class="view">
-<div class="panel"><h2>المشتريات اليومية</h2><form id="purchaseForm"><div class="two"><label>التاريخ<input type="date" id="buyDate" required><span class="dayname" id="buyDateDay"></span></label><label>المورد<select id="buySupplier"></select></label></div><label>ملاحظة<input id="buyNote"></label>
+<div class="panel"><h2>المشتريات اليومية</h2><form id="purchaseForm"><input type="hidden" id="buyId"><div class="two"><label>التاريخ<input type="date" id="buyDate" required><span class="dayname" id="buyDateDay"></span></label><label>المورد<select id="buySupplier" onchange="purchaseSupplierChanged()"></select></label></div><label>ملاحظة<input id="buyNote"></label>
 <h3>المنتجات المشتراة</h3><div id="buyLines"></div><button type="button" onclick="addBuyLine()">+ إضافة صنف</button>
 <div class="calc"><div><span>إجمالي ما تم شراؤه</span><b id="buyTotal">0</b></div><div><span>إجمالي قيمة البيع المتوقعة</span><b id="buyExpectedSales">0</b></div><div><span>إجمالي الربح المتوقع</span><b id="buyExpectedProfit">0</b></div><div><span>نسبة الربح المتوقعة</span><b id="buyPct">0%</b></div></div>
-<button type="submit" class="primary">حفظ الفاتورة</button></form></div>
+<div class="two"><button type="submit" class="primary" id="buySubmit">حفظ الفاتورة</button><button type="button" id="buyCancel" onclick="clearPurchase()">فاتورة جديدة</button></div></form></div>
 <div class="panel"><h2>الفواتير السابقة</h2><div class="tablewrap"><table class="grid"><thead><tr><th>رقم الفاتورة</th><th>التاريخ</th><th>المورد</th><th>الشراء</th><th>البيع المتوقع</th><th>الربح المتوقع</th><th>نسبة الربح</th><th>تفاصيل</th><th></th></tr></thead><tbody id="purchaseRows"></tbody></table></div></div>
 </section>
 
@@ -69,8 +69,8 @@ button{font:inherit;font-weight:bold;border:1px solid #ccc;border-radius:9px;pad
 </div>
 <div class="panel"><h2>تسديد للمورد</h2><div class="muted">اختر المورد وسجل المبلغ المدفوع فقط. التطبيق يحسب المتبقي تلقائيًا.</div><form id="payForm"><input type="hidden" id="payId"><div class="two"><label>التاريخ<input type="date" id="payDate"><span class="dayname" id="payDateDay"></span></label><label>المورد<select id="paySupplier"></select></label></div><label>المبلغ<input type="number" step="0.01" id="payAmount" min="0.01" required></label><label>ملاحظة<input id="payNote"></label><button type="submit" class="primary">حفظ التسديد</button></form></div>
 <div class="panel"><div class="tablewrap"><table class="grid"><thead><tr><th>التاريخ</th><th>المورد</th><th>المبلغ</th><th>ملاحظة</th><th></th></tr></thead><tbody id="payRows"></tbody></table></div></div>
-<div class="panel"><h2>مرتجع للمورد</h2><div class="muted">سجل قيمة البضاعة المرتجعة، وسيتم خصمها من حساب المورد مباشرة.</div><form id="returnForm"><input type="hidden" id="retId"><div class="two"><label>التاريخ<input type="date" id="retDate" required><span class="dayname" id="retDateDay"></span></label><label>المورد<select id="retSupplier"></select></label></div><label>قيمة المرتجع بالجنيه<input type="number" step="0.01" id="retAmount" min="0.01" required></label><label>ملاحظة<input id="retNote"></label><div class="two"><button type="submit" class="primary">حفظ المرتجع</button><button type="button" onclick="clearReturn()">جديد</button></div></form></div>
-<div class="panel"><h2>سجل مرتجعات المورد</h2><div class="tablewrap"><table class="grid"><thead><tr><th>التاريخ</th><th>المورد</th><th>قيمة المرتجع</th><th>ملاحظة</th><th></th></tr></thead><tbody id="supplierReturnRows"></tbody></table></div></div>
+<div class="panel"><h2>مرتجع للمورد بالصنف</h2><div class="muted">اختر الفاتورة والصنف والكمية. مبلغ المرتجع يُخصم من حساب المورد، وهامش ربح الكمية المرتجعة يُستبعد من الأرباح. المبلغ المقترح يساوي تكلفة الشراء ويمكن تعديله حسب إشعار المورد.</div><form id="returnForm"><input type="hidden" id="retId"><div class="two"><label>التاريخ<input type="date" id="retDate" required><span class="dayname" id="retDateDay"></span></label><label>المورد<select id="retSupplier" onchange="returnSupplierChanged()"></select></label></div><div id="returnLines"></div><button type="button" onclick="addReturnLine()">+ إضافة صنف مرتجع</button><div class="calc"><div><span>تكلفة الأصناف حسب فواتير الشراء</span><b id="retItemCost">0</b></div></div><label>مبلغ إشعار المورد بالجنيه<input type="number" step="0.01" id="retAmount" min="0.01" required oninput="returnAmountManual=true"></label><label>ملاحظة<input id="retNote"></label><div class="two"><button type="submit" class="primary" id="retSubmit">حفظ المرتجع</button><button type="button" onclick="clearReturn()">جديد</button></div></form></div>
+<div class="panel"><h2>سجل مرتجعات المورد</h2><div class="muted">المرتجعات القديمة التي لا تحتوي على صنف وكمية تظهر بعلامة «تحتاج تفصيل»؛ افتح تعديلًا وسجل تفاصيلها حتى يُخصم هامشها من الأرباح.</div><div class="tablewrap"><table class="grid"><thead><tr><th>التاريخ</th><th>المورد</th><th>الأصناف والكميات</th><th>قيمة المرتجع</th><th>ملاحظة</th><th></th></tr></thead><tbody id="supplierReturnRows"></tbody></table></div></div>
 </section>
 
 
@@ -95,14 +95,11 @@ button{font:inherit;font-weight:bold;border:1px solid #ccc;border-radius:9px;pad
 
 <section id="reports" class="view">
 <div class="panel"><h2>تقرير فترة</h2><div class="two"><label>من<input type="date" id="rFrom" onchange="renderReport()"><span class="dayname" id="rFromDay"></span></label><label>إلى<input type="date" id="rTo" onchange="renderReport()"><span class="dayname" id="rToDay"></span></label></div>
-<div class="cards" style="margin-top:10px"><div class="card"><span>المشتريات</span><b id="rPurch">0</b></div><div class="card"><span>بيع متوقع</span><b id="rExpectedSales">0</b></div><div class="card"><span>ربح متوقع</span><b id="rExpectedProfit">0</b></div><div class="card"><span>نسبة الربح</span><b id="rPct">0%</b></div><div class="card"><span>المبيعات الفعلية</span><b id="rSales">0</b></div><div class="card"><span>المصاريف</span><b id="rExp">0</b></div><div class="card"><span>المسحوبات</span><b id="rWd">0</b></div><div class="card"><span>الإيرادات الأخرى</span><b id="rInc">0</b></div><div class="card"><span>مرتجعات المورد</span><b id="rReturns">0</b></div><div class="card"><span>قيمة البضاعة غير المباعة بسعر البيع</span><b id="rUnsold">0</b><small id="rUnsoldDate" class="muted"></small></div></div></div>
-<div class="panel"><h2>ملخص المبيعات والمخزون</h2><p id="rSummaryNote" class="muted">ربح المبيعات تقديري حسب متوسط هامش الأصناف المشتراة حتى نهاية الفترة، وتكلفة المخزون محسوبة بمتوسط تكلفة شراء الصنف. الأرباح هنا قبل خصم المصروفات والمسحوبات، والإيرادات الأخرى تُضاف إلى الربح النهائي فقط.</p><div class="cards"><div class="card"><span>تكلفة المبيعات التقديرية</span><b id="rSalesCost">0</b></div><div class="card"><span>ربح المبيعات</span><b id="rSalesProfit">0</b></div><div class="card"><span>ربح المبيعات + الإيرادات الأخرى</span><b id="rSalesProfitWithIncome">0</b></div><div class="card"><span>ربح المخزون المتوقع</span><b id="rInventoryProfit">0</b></div><div class="card"><span>المخزون بسعر البيع</span><b id="rInventorySale">0</b></div><div class="card"><span>المخزون بسعر الشراء</span><b id="rInventoryCost">0</b></div><div class="card"><span>الإيرادات الأخرى</span><b id="rOtherIncome">0</b></div><div class="card"><span>إجمالي المبيعات + المخزون بسعر البيع</span><b id="rTotalSaleValue">0</b></div><div class="card"><span>إجمالي تكلفة النشاط</span><b id="rTotalCost">0</b></div><div class="card"><span>الربح النهائي قبل المصروفات والمسحوبات</span><b id="rTotalProfit">0</b></div></div></div>
+<div class="cards" style="margin-top:10px"><div class="card"><span>المشتريات قبل المرتجعات</span><b id="rPurch">0</b></div><div class="card"><span>بيع متوقع بعد المرتجعات</span><b id="rExpectedSales">0</b></div><div class="card"><span>ربح متوقع بعد استبعاد ربح المرتجع</span><b id="rExpectedProfit">0</b></div><div class="card"><span>نسبة الربح الصافي من الشراء</span><b id="rPct">0%</b></div><div class="card"><span>المبيعات الفعلية</span><b id="rSales">0</b></div><div class="card"><span>المصاريف</span><b id="rExp">0</b></div><div class="card"><span>المسحوبات</span><b id="rWd">0</b></div><div class="card"><span>الإيرادات الأخرى</span><b id="rInc">0</b></div><div class="card"><span>مرتجعات المورد</span><b id="rReturns">0</b></div></div></div>
+<div class="panel"><h2>ربح المبيعات التقديري</h2><p class="muted">ربح المبيعات تقديري لأن التطبيق يسجل إجمالي البيع اليومي فقط، وليس بيع كل صنف. النسبة مأخوذة من مشتريات الأصناف بعد خصم المرتجعات المفصلة حتى نهاية الفترة. مرتجع المورد لا يخصم من مبلغ المبيعات الفعلية.</p><div class="cards"><div class="card"><span>تكلفة البضاعة المباعة تقديريًا</span><b id="rSalesCost">0</b></div><div class="card"><span>ربح المبيعات التقديري</span><b id="rSalesProfit">0</b></div><div class="card"><span>ربح المبيعات مع الإيرادات الأخرى</span><b id="rSalesProfitWithIncome">0</b></div><div class="card"><span>بعد خصم المصروفات</span><b id="rProfitAfterExpenses">0</b></div></div></div>
+<div class="panel"><h2>البضاعة المتبقية في المخزن</h2><p id="rStockNote" class="muted">يعرض آخر جرد حتى نهاية الفترة، ويحسب تكلفة الموجود بمتوسط تكلفة الشراء بعد استبعاد الأصناف المرتجعة للمورد. ربح المخزون هنا متوقع عند بيع الكمية كلها.</p><p id="rReturnWarning" class="warn"></p><p id="rStockCostWarning" class="warn"></p><div class="cards"><div class="card"><span id="rInventoryCostLabel">تكلفة المخزون بسعر الشراء</span><b id="rInventoryCost">0</b></div><div class="card"><span>قيمة المخزون بسعر البيع</span><b id="rInventorySale">0</b></div><div class="card"><span id="rInventoryProfitLabel">الربح المتوقع من المخزون المتبقي</span><b id="rInventoryProfit">0</b></div></div><small id="rStockDate" class="muted"></small><div class="tablewrap"><table class="grid"><thead><tr><th>الصنف</th><th>الكمية المتبقية</th><th>تكلفة شراء القطعة</th><th>إجمالي التكلفة</th><th>سعر بيع القطعة</th><th>القيمة بسعر البيع</th><th>الربح المتوقع</th></tr></thead><tbody id="reportUnsoldRows"></tbody><tfoot id="reportStockTotals"></tfoot></table></div></div>
 <div class="panel"><h2>إجمالي المصروفات حسب النوع</h2><p class="muted">الإجمالي محسوب داخل المدة المحددة أعلاه، ويشمل أي نوع مصروف كتبته يدويًا.</p><div class="tablewrap"><table class="grid"><thead><tr><th>نوع المصروف</th><th>عدد مرات التسجيل</th><th>الإجمالي</th></tr></thead><tbody id="reportExpenseRows"></tbody></table></div></div>
 <div class="panel"><h2>ربحية المنتجات المشتراة</h2><div class="tablewrap"><table class="grid"><thead><tr><th>المنتج</th><th>إجمالي شراء</th><th>بيع متوقع</th><th>ربح متوقع</th><th>نسبة الربح</th></tr></thead><tbody id="reportProductRows"></tbody></table></div></div>
-<div class="panel"><h2>البضاعة غير المباعة — حسب آخر جرد في الفترة</h2>
-<p class="muted">القيمة = الكمية المتبقية فعليًا في الجرد × سعر بيع القطعة.</p>
-<div class="tablewrap"><table class="grid"><thead><tr><th>المنتج</th><th>الكمية المتبقية</th><th>سعر البيع</th><th>القيمة بسعر البيع</th></tr></thead><tbody id="reportUnsoldRows"></tbody></table></div>
-</div>
 </section>
 
 <section id="backup" class="view"><div class="panel"><h2>النسخ الاحتياطي</h2><div class="two"><button type="button" class="primary" onclick="AndroidDB.exportBackup()">حفظ نسخة</button><button type="button" onclick="AndroidDB.importBackup()">استرجاع نسخة</button></div><p class="muted">احفظ نسخة قبل حذف التطبيق أو تغيير الهاتف.</p></div></section>
@@ -122,7 +119,7 @@ button{font:inherit;font-weight:bold;border:1px solid #ccc;border-radius:9px;pad
 <button class="active" data-v="home" onclick="go('home')">الرئيسية</button><button data-v="partners" onclick="go('partners')">الشركاء</button><button data-v="products" onclick="go('products')">الأصناف</button><button data-v="purchases" onclick="go('purchases')">المشتريات</button><button data-v="sales" onclick="go('sales')">المبيعات</button><button data-v="supplier" onclick="go('supplier')">المورد</button><button data-v="expenses" onclick="go('expenses')">المصاريف</button><button data-v="income" onclick="go('income')">الإيرادات</button><button data-v="inventory" onclick="go('inventory')">الجرد</button><button data-v="reports" onclick="go('reports')">تقارير</button><button data-v="backup" onclick="go('backup')">نسخة</button>
 </nav>
 <script src="accounting.js"></script><script>
-const $=id=>document.getElementById(id);let db={},buyLines=[];
+const $=id=>document.getElementById(id);let db={},buyLines=[],returnLines=[],returnAmountManual=false;
 const n=v=>Number(v||0), money=v=>n(v).toLocaleString('ar-EG',{minimumFractionDigits:2,maximumFractionDigits:2});
 const pad2=x=>String(x).padStart(2,'0');
 const today=()=>{const d=new Date();return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`};
@@ -148,26 +145,32 @@ function bindDateDays(){
     }
   });
 }
-function reload(){try{db=JSON.parse(AndroidDB.getAllData())}catch(e){db={products:[],suppliers:[],purchases:[],purchase_lines:[],daily_sales:[],payments:[],supplier_returns:[],expenses:[],withdrawals:[],income:[],inventories:[],inventory_lines:[]}}}
+function reload(){try{db=JSON.parse(AndroidDB.getAllData())}catch(e){db={products:[],suppliers:[],purchases:[],purchase_lines:[],daily_sales:[],payments:[],supplier_returns:[],supplier_return_lines:[],return_batches:[],expenses:[],withdrawals:[],income:[],inventories:[],inventory_lines:[]}}}
 function go(v){document.querySelectorAll('.view').forEach(x=>x.classList.toggle('active',x.id===v));document.querySelectorAll('.bottom button').forEach(x=>x.classList.toggle('active',x.dataset.v===v));if(v==='inventory')renderInventoryForm();if(v==='reports')renderReport();if(v==='partners')renderPartners();}
 function activeProducts(){return (db.products||[]).filter(x=>n(x.active)===1)}function prod(id){return (db.products||[]).find(x=>n(x.id)===n(id))}function sup(id){return (db.suppliers||[]).find(x=>n(x.id)===n(id))}
 function inRange(d,f,t){return(!f||d>=f)&&(!t||d<=t)}function debt(s){return Accounting.calculateSupplierBalance({invoices:s.invoices_total,payments:s.later_paid,returns:s.returns_total})}
 function balanceLabel(v){return n(v)<0?'لنا عند المورد '+money(Math.abs(n(v))):money(v)}
 function balanceClass(v){return n(v)>0?'bad':'good'}
+function unitemizedReturns(from='',to=''){return (db.supplier_returns||[]).filter(x=>n(x.line_count)===0&&inRange(x.date,from,to))}
+function returnProfitWarning(from='',to=''){let count=unitemizedReturns(from,to).length;return count?`يوجد ${count} مرتجع مورد قديم دون صنف وكمية؛ عدّله من سجل المورد حتى يُخصم هامش ربحه من الحسابات.`:''}
 function setOptions(){
 let sups=db.suppliers||[],so=sups.map(s=>`<option value="${s.id}">${s.name}</option>`).join('');
 $('buySupplier').innerHTML=so||'<option value="">أضف موردًا أولًا</option>';
 $('paySupplier').innerHTML=so||'<option value="">أضف موردًا أولًا</option>';
 $('retSupplier').innerHTML=so||'<option value="">أضف موردًا أولًا</option>';
+renderReturnLines();
 }
-function dashboard(){let d=today(),sales=(db.daily_sales||[]).filter(x=>x.date===d).reduce((a,x)=>a+n(x.total),0),p=(db.purchases||[]).filter(x=>x.date===d).reduce((a,x)=>a+n(x.invoice_total),0),de=(db.suppliers||[]).reduce((a,x)=>a+debt(x),0),ep=(db.purchases||[]).reduce((a,x)=>a+n(x.expected_profit),0),ex=(db.expenses||[]).reduce((a,x)=>a+n(x.amount),0),wd=(db.withdrawals||[]).reduce((a,x)=>a+n(x.amount),0),inc=(db.income||[]).reduce((a,x)=>a+n(x.amount),0);$('dSales').textContent=money(sales);$('dPurch').textContent=money(p);$('dDebt').textContent=balanceLabel(de);$('dExpected').textContent=money(ep);$('dExpenses').textContent=money(ex);$('dWithdrawals').textContent=money(wd);$('dIncome').textContent=money(inc);$('dExpectedNet').textContent=money(ep+inc-ex-wd)}
+function dashboard(){let d=today(),sales=(db.daily_sales||[]).filter(x=>x.date===d).reduce((a,x)=>a+n(x.total),0),p=(db.purchases||[]).filter(x=>x.date===d).reduce((a,x)=>a+n(x.invoice_total),0),de=(db.suppliers||[]).reduce((a,x)=>a+debt(x),0),gross=(db.purchases||[]).reduce((a,x)=>a+n(x.expected_profit),0),ep=Accounting.calculateNetExpectedProfit(gross,db.supplier_return_lines||[]),ex=(db.expenses||[]).reduce((a,x)=>a+n(x.amount),0),wd=(db.withdrawals||[]).reduce((a,x)=>a+n(x.amount),0),inc=(db.income||[]).reduce((a,x)=>a+n(x.amount),0);$('dSales').textContent=money(sales);$('dPurch').textContent=money(p);$('dDebt').textContent=balanceLabel(de);$('dExpected').textContent=money(ep);$('dExpenses').textContent=money(ex);$('dWithdrawals').textContent=money(wd);$('dIncome').textContent=money(inc);$('dExpectedNet').textContent=money(ep+inc-ex-wd);$('homeReturnWarning').textContent=returnProfitWarning()}
 function renderPartners(){
+  let grossExpected=(db.purchases||[]).reduce((a,x)=>a+n(x.expected_profit),0);
   let summary=Accounting.calculatePartnerSummary({
-    expectedProfit:(db.purchases||[]).reduce((a,x)=>a+n(x.expected_profit),0),
+    expectedProfit:grossExpected,
+    supplierReturnLines:db.supplier_return_lines||[],
     otherIncome:(db.income||[]).reduce((a,x)=>a+n(x.amount),0),
     expenses:(db.expenses||[]).reduce((a,x)=>a+n(x.amount),0),
     withdrawals:db.withdrawals||[]
   });
+  $('partnerReturnWarning').textContent=returnProfitWarning();
   $('partnerProfit').textContent=money(summary.distributableProfit);
   $('partnerWithdrawals').textContent=money(summary.totalWithdrawals);
   let mo=summary.partners['محمد إبراهيم'],ah=summary.partners['أحمد عبدالعظيم'];
@@ -175,24 +178,34 @@ function renderPartners(){
 }
 function renderProducts(){$('productRows').innerHTML=(db.products||[]).map(p=>`<tr><td>${p.code}</td><td>${p.name}</td><td>${p.carton_pieces}</td><td>${money(p.sale_price)}</td><td>${n(p.active)?'<span class="good">نشط</span>':'<span class="bad">موقوف</span>'}</td><td><button type="button" onclick="editProduct(${p.id})">تعديل</button> ${n(p.active)?`<button type="button" class="danger" onclick="AndroidDB.archiveProduct(${p.id});refresh()">إيقاف</button>`:`<button type="button" onclick="AndroidDB.restoreProduct(${p.id});refresh()">تفعيل</button>`}</td></tr>`).join('')}
 $('productForm').onsubmit=e=>{e.preventDefault();let id=n($('pId').value),r=id?AndroidDB.updateProduct(id,n($('pCode').value),$('pName').value,n($('pPieces').value),n($('pSale').value),$('pNote').value):AndroidDB.addProduct(n($('pCode').value),$('pName').value,n($('pPieces').value),n($('pSale').value),$('pNote').value);if(r<0)AndroidDB.toast('الكود أو اسم المنتج موجود بالفعل');else{AndroidDB.toast('تم حفظ المنتج');clearProduct();refresh()}};function editProduct(id){let p=prod(id);$('pId').value=p.id;$('pCode').value=p.code;$('pName').value=p.name;$('pPieces').value=p.carton_pieces;$('pSale').value=p.sale_price;$('pNote').value=p.note||''}function clearProduct(){['pId','pCode','pName','pPieces','pSale','pNote'].forEach(x=>$(x).value='')}
-function productOptions(sel){return activeProducts().map(p=>`<option value="${p.id}" ${n(sel)===n(p.id)?'selected':''}>${p.name}</option>`).join('')}
-function addBuyLine(data={}){buyLines.push({product_id:data.product_id||activeProducts()[0]?.id||0,cartons:data.cartons||1,purchase_total:data.purchase_total||0});renderBuyLines()}
-function renderBuyLines(){$('buyLines').innerHTML=buyLines.map((x,i)=>{let p=prod(x.product_id)||activeProducts()[0]||{};let pieces=n(x.cartons)*n(p.carton_pieces),es=pieces*n(p.sale_price),ep=es-n(x.purchase_total),pct=n(x.purchase_total)?ep/n(x.purchase_total)*100:0;return `<div class="line"><div class="linegrid"><label>الصنف<select onchange="buyLines[${i}].product_id=Number(this.value);renderBuyLines()">${productOptions(x.product_id)}</select></label><label>كراتين<input type="number" step="0.01" value="${x.cartons}" onchange="buyLines[${i}].cartons=Number(this.value);renderBuyLines()"></label><label>إجمالي سعر الشراء<input type="number" step="0.01" value="${x.purchase_total}" onchange="buyLines[${i}].purchase_total=Number(this.value);renderBuyLines()"></label><button type="button" class="danger" onclick="buyLines.splice(${i},1);renderBuyLines()">حذف</button></div><div class="muted">${pieces} قطعة × ${money(p.sale_price)} بيع = ${money(es)} بيع متوقع | الربح ${money(ep)} | النسبة ${pct.toFixed(2)}%</div></div>`}).join('');calcPurchase()}
-function calcPurchase(){let total=0,es=0,ep=0;buyLines.forEach(x=>{let p=prod(x.product_id);if(!p)return;let val=n(x.purchase_total),sell=n(x.cartons)*n(p.carton_pieces)*n(p.sale_price);total+=val;es+=sell;ep+=sell-val});$('buyTotal').textContent=money(total);$('buyExpectedSales').textContent=money(es);$('buyExpectedProfit').textContent=money(ep);$('buyPct').textContent=(total?ep/total*100:0).toFixed(2)+'%'}
+function productOptions(sel){let options=activeProducts().slice(),selected=prod(sel);if(selected&&!n(selected.active)&&!options.some(p=>n(p.id)===n(selected.id)))options.unshift(selected);return options.map(p=>`<option value="${p.id}" ${n(sel)===n(p.id)?'selected':''}>${p.name}</option>`).join('')}
+function addBuyLine(data={}){let productId=n(data.product_id)||activeProducts()[0]?.id||0,p=prod(productId)||{};buyLines.push({line_id:n(data.line_id??data.id),product_id:productId,cartons:data.cartons==null?1:n(data.cartons),purchase_total:data.purchase_total==null?0:n(data.purchase_total),carton_pieces:n(data.carton_pieces)||n(p.carton_pieces)||1,sale_price:data.sale_price==null?n(p.sale_price):n(data.sale_price)});renderBuyLines()}
+function purchaseReturnsForInvoice(invoiceId){let lineIds=new Set((db.purchase_lines||[]).filter(l=>n(l.invoice_id)===n(invoiceId)).map(l=>n(l.id)));return (db.supplier_return_lines||[]).filter(r=>lineIds.has(n(r.purchase_line_id)))}
+function purchaseReturnQty(lineId){return (db.supplier_return_lines||[]).filter(r=>n(r.purchase_line_id)===n(lineId)).reduce((sum,r)=>sum+n(r.qty),0)}
+function purchaseSupplierChanged(){let invoiceId=n($('buyId').value);if(!invoiceId)return;let invoice=(db.purchases||[]).find(i=>n(i.id)===invoiceId);if(invoice&&purchaseReturnsForInvoice(invoiceId).length&&n($('buySupplier').value)!==n(invoice.supplier_id)){$('buySupplier').value=invoice.supplier_id;AndroidDB.toast('لا يمكن تغيير المورد لفاتورة مرتبطة بمرتجع مسجل')}}
+function changeBuyProduct(index,productId){let line=buyLines[index],product=prod(productId);if(!line||!product)return;if(line.line_id&&purchaseReturnQty(line.line_id)>0&&n(line.product_id)!==n(productId)){AndroidDB.toast('لا يمكن تغيير صنف مرتبط بمرتجع مسجل');renderBuyLines();return}line.product_id=n(productId);line.carton_pieces=n(product.carton_pieces)||1;line.sale_price=n(product.sale_price);renderBuyLines()}
+function removeBuyLine(index){let line=buyLines[index];if(line&&line.line_id&&purchaseReturnQty(line.line_id)>0)return AndroidDB.toast('لا يمكن حذف صنف مرتبط بمرتجع مسجل');buyLines.splice(index,1);renderBuyLines()}
+function renderBuyLines(){$('buyLines').innerHTML=buyLines.map((x,i)=>{let p=prod(x.product_id)||activeProducts()[0]||{},cartonPieces=n(x.carton_pieces)||n(p.carton_pieces)||1,salePrice=x.sale_price==null?n(p.sale_price):n(x.sale_price),pieces=n(x.cartons)*cartonPieces,es=pieces*salePrice,ep=es-n(x.purchase_total),pct=n(x.purchase_total)?ep/n(x.purchase_total)*100:0;return `<div class="line"><div class="linegrid"><label>الصنف<select onchange="changeBuyProduct(${i},this.value)">${productOptions(x.product_id)}</select></label><label>كراتين<input type="number" step="0.01" value="${x.cartons}" onchange="buyLines[${i}].cartons=Number(this.value);renderBuyLines()"></label><label>إجمالي سعر الشراء<input type="number" step="0.01" value="${x.purchase_total}" onchange="buyLines[${i}].purchase_total=Number(this.value);renderBuyLines()"></label><button type="button" class="danger" onclick="removeBuyLine(${i})">حذف</button></div><div class="muted">${pieces} قطعة × ${money(salePrice)} بيع = ${money(es)} بيع متوقع | الربح ${money(ep)} | النسبة ${pct.toFixed(2)}%</div></div>`}).join('');calcPurchase()}
+function calcPurchase(){let total=0,es=0,ep=0;buyLines.forEach(x=>{let p=prod(x.product_id);if(!p)return;let val=n(x.purchase_total),sell=n(x.cartons)*(n(x.carton_pieces)||n(p.carton_pieces)||1)*(x.sale_price==null?n(p.sale_price):n(x.sale_price));total+=val;es+=sell;ep+=sell-val});$('buyTotal').textContent=money(total);$('buyExpectedSales').textContent=money(es);$('buyExpectedProfit').textContent=money(ep);$('buyPct').textContent=(total?ep/total*100:0).toFixed(2)+'%'}
+function editPurchase(id){let invoice=(db.purchases||[]).find(i=>n(i.id)===n(id));if(!invoice)return;let lines=(db.purchase_lines||[]).filter(l=>n(l.invoice_id)===n(id));$('buyId').value=invoice.id;$('buyDate').value=invoice.date;$('buySupplier').value=invoice.supplier_id;$('buyNote').value=invoice.note||'';buyLines=lines.map(l=>({line_id:n(l.id),product_id:n(l.product_id),cartons:n(l.cartons),purchase_total:n(l.purchase_total),carton_pieces:n(l.carton_pieces),sale_price:n(l.sale_price)}));if(!buyLines.length)addBuyLine();$('buySubmit').textContent='حفظ تعديل الفاتورة';$('buyCancel').textContent='إلغاء التعديل';updateDay('buyDate');renderBuyLines();window.scrollTo({top:0,behavior:'smooth'})}
+function clearPurchase(){$('buyId').value='';$('buyDate').value=today();$('buySupplier').value=$('buySupplier').options.length?$('buySupplier').options[0].value:'';$('buyNote').value='';buyLines=[];addBuyLine();$('buySubmit').textContent='حفظ الفاتورة';$('buyCancel').textContent='فاتورة جديدة';updateDay('buyDate')}
 $('purchaseForm').onsubmit=e=>{
-e.preventDefault();
+e.preventDefault();let editingId=n($('buyId').value);
 if(!(db.suppliers||[]).length||!n($('buySupplier').value))return AndroidDB.toast('أضف موردًا واختره أولًا');
-if(!activeProducts().length)return AndroidDB.toast('أضف صنفًا نشطًا أولًا');
+if(!editingId&&!activeProducts().length)return AndroidDB.toast('أضف صنفًا نشطًا أولًا');
 if(!buyLines.length)return AndroidDB.toast('أضف صنفًا واحدًا على الأقل');
 if(buyLines.some(x=>!n(x.product_id)||n(x.cartons)<=0||n(x.purchase_total)<=0))return AndroidDB.toast('راجع كل صنف: الكمية وسعر الشراء يجب أن يكونا أكبر من صفر');
-let payload={date:$('buyDate').value,supplier_id:n($('buySupplier').value),note:$('buyNote').value,lines:buyLines};
-let r=AndroidDB.addPurchaseInvoice(JSON.stringify(payload));
-if(r<0)AndroidDB.toast('تعذر حفظ الفاتورة');
-else{AndroidDB.toast('تم حفظ الفاتورة رقم '+r);buyLines=[];addBuyLine();$('buyNote').value='';refresh()}
+let payload={date:$('buyDate').value,supplier_id:n($('buySupplier').value),note:$('buyNote').value,lines:buyLines.map(x=>({line_id:n(x.line_id),product_id:n(x.product_id),cartons:n(x.cartons),purchase_total:n(x.purchase_total)}))};
+if(editingId){let invoice=(db.purchases||[]).find(i=>n(i.id)===editingId),originalLines=(db.purchase_lines||[]).filter(l=>n(l.invoice_id)===editingId),returnLines=purchaseReturnsForInvoice(editingId),editedLines=buyLines.map(x=>({id:n(x.line_id),product_id:n(x.product_id),pieces:Math.round(n(x.cartons)*(n(x.carton_pieces)||1))}));let validation=Accounting.validatePurchaseInvoiceEdit({originalLines,editedLines,returnLines,supplierChanged:!!invoice&&n(invoice.supplier_id)!==payload.supplier_id});let messages={supplier_has_returns:'لا يمكن تغيير المورد لفاتورة مرتبطة بمرتجع مسجل',returned_line_removed:'لا يمكن حذف صنف مرتبط بمرتجع مسجل',returned_product_changed:'لا يمكن تغيير صنف مرتبط بمرتجع مسجل',quantity_below_returned:'الكمية بعد التعديل أقل من الكمية المرتجعة'};if(validation)return AndroidDB.toast(messages[validation]||'راجع الأصناف المرتبطة بمرتجع');}
+let r=editingId?AndroidDB.updatePurchaseInvoice(editingId,JSON.stringify(payload)):AndroidDB.addPurchaseInvoice(JSON.stringify(payload));
+if(Number(r)<0)AndroidDB.toast('تعذر حفظ الفاتورة؛ راجع تفاصيل الأصناف والمرتجعات');
+else{AndroidDB.toast(editingId?'تم تعديل فاتورة الشراء رقم '+editingId:'تم حفظ الفاتورة رقم '+r);clearPurchase();refresh()}
 }
-function renderPurchases(){$('purchaseRows').innerHTML=(db.purchases||[]).map(i=>{let ls=(db.purchase_lines||[]).filter(x=>n(x.invoice_id)===n(i.id)).map(x=>`${x.product}: ${x.cartons} كرتونة، شراء ${money(x.purchase_total)}، ربح ${money(x.expected_profit)} (${n(x.profit_pct).toFixed(1)}%)`).join('<br>');return `<tr><td>#${i.id}</td><td>${dayName(i.date)}<br>${i.date}</td><td>${i.supplier}</td><td>${money(i.invoice_total)}</td><td>${money(i.expected_sales)}</td><td>${money(i.expected_profit)}</td><td>${(n(i.invoice_total)?n(i.expected_profit)/n(i.invoice_total)*100:0).toFixed(2)}%</td><td style="text-align:right">${ls}</td><td><button type="button" class="danger" onclick="deletePurchase(${i.id})">حذف</button></td></tr>`}).join('')}
+function renderPurchases(){$('purchaseRows').innerHTML=(db.purchases||[]).map(i=>{let original=(db.purchase_lines||[]).filter(x=>n(x.invoice_id)===n(i.id)),net=Accounting.calculateNetPurchaseLines(original,db.supplier_return_lines||[]),expectedSales=net.reduce((a,x)=>a+n(x.expected_sales),0),expectedProfit=net.reduce((a,x)=>a+n(x.expected_profit),0),ls=net.map(x=>`${x.product}: ${x.cartons} كرتونة، شراء ${money(x.purchase_total)}، ربح بعد المرتجعات ${money(x.expected_profit)} (${n(x.purchase_total)?(n(x.expected_profit)/n(x.purchase_total)*100).toFixed(1):'0.0'}%)`).join('<br>');return `<tr><td>#${i.id}</td><td>${dayName(i.date)}<br>${i.date}</td><td>${i.supplier}</td><td>${money(i.invoice_total)}</td><td>${money(expectedSales)}</td><td>${money(expectedProfit)}</td><td>${(n(i.invoice_total)?expectedProfit/n(i.invoice_total)*100:0).toFixed(2)}%</td><td style="text-align:right">${ls}</td><td><button type="button" onclick="editPurchase(${i.id})">تعديل</button> <button type="button" class="danger" onclick="deletePurchase(${i.id})">حذف</button></td></tr>`}).join('')}
 $('salesForm').onsubmit=e=>{e.preventDefault();let r=AndroidDB.saveDailySale(n($('saleId').value),$('saleDate').value,n($('saleTotal').value),$('saleNote').value);if(Number(r)<0)AndroidDB.toast('تعذر حفظ المبيعات');else{AndroidDB.toast('تم حفظ مبيعات اليوم');clearSale();refresh()}};function renderSales(){$('salesRows').innerHTML=(db.daily_sales||[]).map(x=>`<tr><td>${dayName(x.date)}<br>${x.date}</td><td>${money(x.total)}</td><td>${x.note||''}</td><td><button type="button" onclick="editSale(${x.id})">تعديل</button> <button type="button" class="danger" onclick="deleteSale(${x.id})">حذف</button></td></tr>`).join('')}function editSale(id){let x=(db.daily_sales||[]).find(y=>n(y.id)===n(id));$('saleId').value=x.id;$('saleDate').value=x.date;$('saleTotal').value=x.total;$('saleNote').value=x.note||'';updateDay('saleDate')}function clearSale(){$('saleId').value='';$('saleDate').value=today();$('saleTotal').value='';$('saleNote').value='';updateDay('saleDate')}
-$('supplierForm').onsubmit=e=>{e.preventDefault();let id=n($('sId').value),r=id?AndroidDB.updateSupplier(id,$('sName').value,$('sPhone').value,$('sNote').value):AndroidDB.addSupplier($('sName').value,$('sPhone').value,$('sNote').value);if(r<0)AndroidDB.toast('المورد موجود');else{AndroidDB.toast('تم حفظ المورد');['sId','sName','sPhone','sNote'].forEach(x=>$(x).value='');refresh()}};function renderSupplier(){
+$('supplierForm').onsubmit=e=>{e.preventDefault();let id=n($('sId').value),r=id?AndroidDB.updateSupplier(id,$('sName').value,$('sPhone').value,$('sNote').value):AndroidDB.addSupplier($('sName').value,$('sPhone').value,$('sNote').value);if(r<0)AndroidDB.toast('المورد موجود');else{AndroidDB.toast('تم حفظ المورد');['sId','sName','sPhone','sNote'].forEach(x=>$(x).value='');refresh()}};
+function supplierReturnInvoiceAllocations(){return Accounting.allocateSupplierReturnsByInvoice({supplierReturns:db.supplier_returns||[],supplierReturnLines:db.supplier_return_lines||[],purchaseLines:db.purchase_lines||[]})}
+function renderSupplier(){
   let sups=db.suppliers||[];
   $('supplierRows').innerHTML=sups.map(s=>{
     let total=n(s.invoices_total), paid=n(s.later_paid), returned=n(s.returns_total), rem=debt(s);
@@ -209,30 +222,50 @@ $('supplierForm').onsubmit=e=>{e.preventDefault();let id=n($('sId').value),r=id?
   $('supplierGrandBalance').textContent=balanceLabel(grandBalance);
   $('supplierGrandBalance').className=balanceClass(grandBalance);
 
-  // For display, payments and returns are applied to the oldest invoices first.
-  let paidPool={},returnPool={};
-  sups.forEach(s=>{paidPool[String(s.id)]=n(s.later_paid);returnPool[String(s.id)]=n(s.returns_total)});
+  // Itemized returns follow their purchase invoices. Old amount-only returns are allocated oldest-first.
+  let paidPool={},returnPool={},returnAllocation=supplierReturnInvoiceAllocations();
+  sups.forEach(s=>{paidPool[String(s.id)]=n(s.later_paid);returnPool[String(s.id)]=n(returnAllocation.legacyBySupplier[String(s.id)]||0)});
   let inv=(db.purchases||[]).slice().sort((a,b)=>a.date.localeCompare(b.date)||n(a.id)-n(b.id));
   let rows=inv.map(i=>{
-    let key=String(i.supplier_id),available=n(paidPool[key]||0),availableReturn=n(returnPool[key]||0),total=n(i.invoice_total);
+    let key=String(i.supplier_id),available=n(paidPool[key]||0),availableReturn=n(returnPool[key]||0),directReturn=n(returnAllocation.invoiceAmounts[String(i.id)]||0),total=n(i.invoice_total);
     let applied=Math.min(available,total);
     paidPool[key]=Math.max(0,available-applied);
-    let returned=Math.min(availableReturn,Math.max(0,total-applied));
-    returnPool[key]=Math.max(0,availableReturn-returned);
-    let rem=Math.max(0,total-applied-returned);
+    let legacyApplied=Math.min(availableReturn,Math.max(0,total-applied-directReturn));
+    let returned=directReturn+legacyApplied;
+    returnPool[key]=Math.max(0,availableReturn-legacyApplied);
+    let rem=total-applied-returned;
     return `<tr><td>#${i.id}</td><td>${dayName(i.date)}<br>${i.date}</td><td>${i.supplier}</td><td>${money(total)}</td><td>${money(applied)}</td><td>${money(returned)}</td><td class="${balanceClass(rem)}">${balanceLabel(rem)}</td></tr>`
   });
   $('supplierInvoiceRows').innerHTML=rows.reverse().join('');
 
   $('payRows').innerHTML=(db.payments||[]).slice().sort((a,b)=>b.date.localeCompare(a.date)).map(x=>`<tr><td>${dayName(x.date)}<br>${x.date}</td><td>${x.supplier}</td><td>${money(x.amount)}</td><td>${x.note||''}</td><td><button type="button" onclick="editPay(${x.id})">تعديل</button> <button type="button" class="danger" onclick="deletePayment(${x.id})">حذف</button></td></tr>`).join('');
-  $('supplierReturnRows').innerHTML=(db.supplier_returns||[]).slice().sort((a,b)=>b.date.localeCompare(a.date)||n(b.id)-n(a.id)).map(x=>`<tr><td>${dayName(x.date)}<br>${x.date}</td><td>${x.supplier}</td><td>${money(x.amount)}</td><td>${x.note||''}</td><td><button type="button" onclick="editReturn(${x.id})">تعديل</button> <button type="button" class="danger" onclick="deleteSupplierReturn(${x.id})">حذف</button></td></tr>`).join('')
+  $('supplierReturnRows').innerHTML=(db.supplier_returns||[]).slice().sort((a,b)=>b.date.localeCompare(a.date)||n(b.id)-n(a.id)).map(x=>{
+    let details=(db.supplier_return_lines||[]).filter(l=>n(l.return_id)===n(x.id)).map(l=>`${l.product} × ${n(l.qty)} قطعة`).join('، ');
+    let itemCell=n(x.line_count)>0?details:'<span class="warn">تحتاج تفصيل الصنف والكمية</span>';
+    return `<tr><td>${dayName(x.date)}<br>${x.date}</td><td>${x.supplier}</td><td>${itemCell}</td><td>${money(x.amount)}</td><td>${x.note||''}</td><td><button type="button" onclick="editReturn(${x.id})">تعديل</button> <button type="button" class="danger" onclick="deleteSupplierReturn(${x.id})">حذف</button></td></tr>`
+  }).join('')
 }function editSupplier(id){let s=sup(id);$('sId').value=s.id;$('sName').value=s.name;$('sPhone').value=s.phone||'';$('sNote').value=s.note||''}
 $('payForm').onsubmit=e=>{e.preventDefault();
 if(!n($('paySupplier').value))return AndroidDB.toast('اختر المورد');
 if(n($('payAmount').value)<=0)return AndroidDB.toast('اكتب مبلغ تسديد صحيح');
 let id=n($('payId').value),r=id?AndroidDB.updatePayment(id,$('payDate').value,n($('paySupplier').value),n($('payAmount').value),$('payNote').value):AndroidDB.addPayment($('payDate').value,n($('paySupplier').value),n($('payAmount').value),$('payNote').value);
 if(Number(r)<0)AndroidDB.toast('تعذر حفظ التسديد');else{AndroidDB.toast('تم حفظ التسديد');clearPay();refresh()}};function editPay(id){let x=(db.payments||[]).find(y=>n(y.id)===n(id));$('payId').value=x.id;$('payDate').value=x.date;$('paySupplier').value=x.supplier_id;$('payAmount').value=x.amount;$('payNote').value=x.note||'';updateDay('payDate')}function clearPay(){$('payId').value='';$('payDate').value=today();$('payAmount').value='';$('payNote').value='';updateDay('payDate')}
-$('returnForm').onsubmit=e=>{e.preventDefault();if(!n($('retSupplier').value))return AndroidDB.toast('اختر المورد');if(n($('retAmount').value)<=0)return AndroidDB.toast('اكتب قيمة مرتجع صحيحة');let id=n($('retId').value),r=id?AndroidDB.updateSupplierReturn(id,$('retDate').value,n($('retSupplier').value),n($('retAmount').value),$('retNote').value):AndroidDB.addSupplierReturn($('retDate').value,n($('retSupplier').value),n($('retAmount').value),$('retNote').value);if(Number(r)<0)AndroidDB.toast('تعذر حفظ المرتجع');else{AndroidDB.toast('تم حفظ المرتجع وخصمه من حساب المورد');clearReturn();refresh()}};function editReturn(id){let x=(db.supplier_returns||[]).find(y=>n(y.id)===n(id));$('retId').value=x.id;$('retDate').value=x.date;$('retSupplier').value=x.supplier_id;$('retAmount').value=x.amount;$('retNote').value=x.note||'';updateDay('retDate')}function clearReturn(){$('retId').value='';$('retDate').value=today();$('retAmount').value='';$('retNote').value='';updateDay('retDate')}
+function returnBatch(id){return (db.return_batches||[]).find(b=>n(b.purchase_line_id)===n(id))}
+function ownReturnQty(batchId){let id=n($('retId').value);return (db.supplier_return_lines||[]).filter(l=>n(l.return_id)===id&&n(l.purchase_line_id)===n(batchId)).reduce((a,l)=>a+n(l.qty),0)}
+function returnAvailable(batchId,lineIndex=-1){let b=returnBatch(batchId);if(!b)return 0;let used=returnLines.reduce((a,l,i)=>i!==lineIndex&&n(l.purchase_line_id)===n(batchId)?a+n(l.qty):a,0);return Accounting.calculateAvailableReturnQty({purchasedQty:b.purchased_qty,alreadyReturnedQty:b.returned_qty,editingReturnQty:ownReturnQty(batchId),otherDraftQty:used})}
+function returnBatchesForSupplier(){let supplierId=n($('retSupplier').value);return (db.return_batches||[]).filter(b=>n(b.supplier_id)===supplierId)}
+function returnBatchOptions(lineIndex){let selected=returnLines[lineIndex]||{},batches=returnBatchesForSupplier().filter(b=>returnAvailable(b.purchase_line_id,lineIndex)>0||n(b.purchase_line_id)===n(selected.purchase_line_id));if(!batches.length)return '<option value="">لا توجد كمية متاحة من مشتريات هذا المورد</option>';return '<option value="">اختر الفاتورة والصنف</option>'+batches.map(b=>{let available=returnAvailable(b.purchase_line_id,lineIndex),sel=n(selected.purchase_line_id)===n(b.purchase_line_id)?'selected':'';return `<option value="${b.purchase_line_id}" ${sel}>فاتورة #${b.invoice_id} — ${b.product} — ${b.purchase_date} (متاح ${available})</option>`}).join('')}
+function returnLineCost(){return returnLines.reduce((sum,line)=>{let batch=returnBatch(line.purchase_line_id);return sum+(batch?n(line.qty)*n(batch.unit_cost):0)},0)}
+function updateReturnAmount(){let cost=returnLineCost();$('retItemCost').textContent=money(cost);if(!returnAmountManual&&!n($('retId').value))$('retAmount').value=cost>0?cost.toFixed(2):''}
+function renderReturnLines(){let host=$('returnLines');if(!host)return;if(!returnLines.length){host.innerHTML='<div class="muted">أضف صنفًا واحدًا على الأقل، ثم اكتب عدد القطع المرتجعة.</div>';updateReturnAmount();return}host.innerHTML=returnLines.map((line,i)=>{let batch=returnBatch(line.purchase_line_id),max=returnAvailable(line.purchase_line_id,i);return `<div class="line"><div class="two"><label>الفاتورة والصنف<select onchange="selectReturnBatch(${i},this.value)">${returnBatchOptions(i)}</select></label><label>عدد القطع<input type="number" min="1" step="1" max="${max}" value="${line.qty}" onchange="setReturnQty(${i},this.value)"></label></div><div class="muted">${batch?`المتاح: ${max} قطعة | تكلفة الشراء: ${money(batch.unit_cost)} للقطعة | هامش الربح المستبعد: ${money(batch.unit_expected_profit)} للقطعة`:'اختر الصنف من مشتريات المورد'}</div><button type="button" class="danger" onclick="removeReturnLine(${i})">حذف الصنف</button></div>`}).join('');updateReturnAmount()}
+function addReturnLine(){if(!n($('retSupplier').value))return AndroidDB.toast('اختر المورد أولًا');let used=new Set(returnLines.map(x=>n(x.purchase_line_id))),candidate=returnBatchesForSupplier().find(b=>returnAvailable(b.purchase_line_id)>0&&!used.has(n(b.purchase_line_id)));if(!candidate)return AndroidDB.toast('لا توجد كمية مشتراة متاحة للإرجاع لهذا المورد');returnLines.push({purchase_line_id:n(candidate.purchase_line_id),qty:1});renderReturnLines()}
+function selectReturnBatch(index,value){let id=n(value);if(id&&returnLines.some((line,i)=>i!==index&&n(line.purchase_line_id)===id))return AndroidDB.toast('هذا الصنف موجود بالفعل في قائمة المرتجع');returnLines[index].purchase_line_id=id;returnLines[index].qty=id?Math.min(Math.max(1,n(returnLines[index].qty)),Math.max(1,returnAvailable(id,index))):0;renderReturnLines()}
+function setReturnQty(index,value){let qty=Math.floor(n(value)),max=returnAvailable(returnLines[index].purchase_line_id,index);if(qty<1||qty>max){AndroidDB.toast('الكمية أكبر من المتاح في فاتورة الشراء');qty=Math.min(Math.max(1,qty),max)}returnLines[index].qty=qty;renderReturnLines()}
+function removeReturnLine(index){returnLines.splice(index,1);renderReturnLines()}
+function returnSupplierChanged(){returnLines=[];returnAmountManual=false;$('retAmount').value='';renderReturnLines()}
+$('returnForm').onsubmit=e=>{e.preventDefault();if(!n($('retSupplier').value))return AndroidDB.toast('اختر المورد');if(!returnLines.length||returnLines.some((x,i)=>!n(x.purchase_line_id)||n(x.qty)<=0||n(x.qty)>returnAvailable(x.purchase_line_id,i)))return AndroidDB.toast('أضف صنفًا واكتب كمية صحيحة متاحة');if(n($('retAmount').value)<=0)return AndroidDB.toast('اكتب مبلغ إشعار المورد');let payload={date:$('retDate').value,supplier_id:n($('retSupplier').value),amount:n($('retAmount').value),note:$('retNote').value,lines:returnLines.map(x=>({purchase_line_id:n(x.purchase_line_id),qty:n(x.qty)}))};let id=n($('retId').value),r=id?AndroidDB.updateSupplierReturn(id,JSON.stringify(payload)):AndroidDB.addSupplierReturn(JSON.stringify(payload));if(Number(r)<0)AndroidDB.toast('تعذر حفظ المرتجع؛ راجع المورد والكمية المتاحة');else{AndroidDB.toast('تم حفظ المرتجع وخصمه من حساب المورد واستبعاد ربح أصنافه');clearReturn();refresh()}};
+function editReturn(id){let x=(db.supplier_returns||[]).find(y=>n(y.id)===n(id));$('retId').value=x.id;$('retDate').value=x.date;$('retSupplier').value=x.supplier_id;$('retAmount').value=x.amount;$('retNote').value=x.note||'';returnAmountManual=true;returnLines=(db.supplier_return_lines||[]).filter(y=>n(y.return_id)===n(x.id)).map(y=>({purchase_line_id:n(y.purchase_line_id),qty:n(y.qty)}));$('retSubmit').textContent='حفظ تعديل المرتجع';updateDay('retDate');renderReturnLines()}
+function clearReturn(){$('retId').value='';$('retDate').value=today();$('retAmount').value='';$('retNote').value='';$('retSubmit').textContent='حفظ المرتجع';returnLines=[];returnAmountManual=false;updateDay('retDate');renderReturnLines()}
  $('expenseForm').onsubmit=e=>{e.preventDefault();if(n($('expAmount').value)<=0)return AndroidDB.toast('اكتب مبلغ مصروف صحيح');let id=n($('expId').value),r=id?AndroidDB.updateExpense(id,$('expDate').value,$('expType').value,n($('expAmount').value),$('expNote').value):AndroidDB.addExpense($('expDate').value,$('expType').value,n($('expAmount').value),$('expNote').value);if(Number(r)<0)AndroidDB.toast('تعذر حفظ المصروف');else{AndroidDB.toast('تم حفظ المصروف');clearExp();refresh()}};function clearExp(){$('expId').value='';$('expDate').value=today();$('expType').value='فطار';$('expAmount').value='';$('expNote').value='';updateDay('expDate')}function editExp(id){let x=db.expenses.find(y=>n(y.id)===n(id));$('expId').value=x.id;$('expDate').value=x.date;$('expType').value=x.type;$('expAmount').value=x.amount;$('expNote').value=x.note||'';updateDay('expDate')}
 $('wdForm').onsubmit=e=>{e.preventDefault();if(n($('wdAmount').value)<=0)return AndroidDB.toast('اكتب قيمة مسحوب صحيحة');let id=n($('wdId').value),r=id?AndroidDB.updateWithdrawal(id,$('wdDate').value,$('wdPerson').value,$('wdKind').value,n($('wdAmount').value),$('wdNote').value):AndroidDB.addWithdrawal($('wdDate').value,$('wdPerson').value,$('wdKind').value,n($('wdAmount').value),$('wdNote').value);if(Number(r)<0)AndroidDB.toast('تعذر حفظ المسحوب');else{AndroidDB.toast('تم حفظ المسحوب');clearWd();refresh()}};function clearWd(){$('wdId').value='';$('wdDate').value=today();$('wdAmount').value='';$('wdNote').value='';updateDay('wdDate')}function editWd(id){let x=db.withdrawals.find(y=>n(y.id)===n(id));$('wdId').value=x.id;$('wdDate').value=x.date;$('wdPerson').value=x.person;$('wdKind').value=x.kind;$('wdAmount').value=x.amount;$('wdNote').value=x.note||'';updateDay('wdDate')}
 $('incomeForm').onsubmit=e=>{e.preventDefault();if(n($('incAmount').value)<=0)return AndroidDB.toast('اكتب مبلغ إيراد صحيح');let id=n($('incId').value),r=id?AndroidDB.updateIncome(id,$('incDate').value,$('incType').value,n($('incAmount').value),$('incNote').value):AndroidDB.addIncome($('incDate').value,$('incType').value,n($('incAmount').value),$('incNote').value);if(Number(r)<0)AndroidDB.toast('تعذر حفظ الإيراد');else{AndroidDB.toast('تم حفظ الإيراد');clearInc();refresh()}};function clearInc(){$('incId').value='';$('incDate').value=today();$('incAmount').value='';$('incNote').value='';updateDay('incDate')}function editInc(id){let x=db.income.find(y=>n(y.id)===n(id));$('incId').value=x.id;$('incDate').value=x.date;$('incType').value=x.type;$('incAmount').value=x.amount;$('incNote').value=x.note||'';updateDay('incDate')}
@@ -247,52 +280,58 @@ function renderIncome(){
 $('incomeRows').innerHTML=(db.income||[]).slice().sort((a,b)=>b.date.localeCompare(a.date)).map(x=>`<tr><td>${dayName(x.date)}<br>${x.date}</td><td>${x.type}</td><td>${money(x.amount)}</td><td>${x.note||''}</td><td><button type="button" onclick="editInc(${x.id})">تعديل</button> <button type="button" class="danger" onclick="deleteIncome(${x.id})">حذف</button></td></tr>`).join('')
 }
 function renderInventoryForm(){let old={};document.querySelectorAll('.invqty').forEach(i=>old[i.dataset.pid]=i.value);$('inventoryLines').innerHTML=activeProducts().map(p=>`<div class="line two"><label>${p.name} — ${money(p.sale_price)} للقطعة<input class="invqty" data-pid="${p.id}" type="number" min="0" value="${old[p.id]||0}" oninput="calcInventory()"></label><div class="calc"><div><span>القيمة</span><b id="iv${p.id}">0</b></div></div></div>`).join('');calcInventory()}
-function periodMetrics(f,t){let purchases=(db.purchases||[]).filter(x=>inRange(x.date,f,t)),sales=(db.daily_sales||[]).filter(x=>inRange(x.date,f,t)),income=(db.income||[]).filter(x=>inRange(x.date,f,t)),expenses=(db.expenses||[]).filter(x=>inRange(x.date,f,t)),withdrawals=(db.withdrawals||[]).filter(x=>inRange(x.date,f,t)),payments=(db.payments||[]).filter(x=>inRange(x.date,f,t)),returns=(db.supplier_returns||[]).filter(x=>inRange(x.date,f,t));let pi=purchases.reduce((a,x)=>a+n(x.invoice_total),0),pe=purchases.reduce((a,x)=>a+n(x.expected_profit),0),sp=payments.reduce((a,x)=>a+n(x.amount),0),sr=returns.reduce((a,x)=>a+n(x.amount),0);return{purchases:pi,expected:pe,invoicePaid:0,laterPaid:sp,returns:sr,sales:sales.reduce((a,x)=>a+n(x.total),0),income:income.reduce((a,x)=>a+n(x.amount),0),expenses:expenses.reduce((a,x)=>a+n(x.amount),0),withdrawals:withdrawals.reduce((a,x)=>a+n(x.amount),0)}}
+function periodMetrics(f,t){let purchases=(db.purchases||[]).filter(x=>inRange(x.date,f,t)),sales=(db.daily_sales||[]).filter(x=>inRange(x.date,f,t)),income=(db.income||[]).filter(x=>inRange(x.date,f,t)),expenses=(db.expenses||[]).filter(x=>inRange(x.date,f,t)),withdrawals=(db.withdrawals||[]).filter(x=>inRange(x.date,f,t)),payments=(db.payments||[]).filter(x=>inRange(x.date,f,t)),returns=(db.supplier_returns||[]).filter(x=>inRange(x.date,f,t));let pi=purchases.reduce((a,x)=>a+n(x.invoice_total),0),grossExpected=purchases.reduce((a,x)=>a+n(x.expected_profit),0),pe=Accounting.calculateNetExpectedProfit(grossExpected,db.supplier_return_lines||[],f,t),sp=payments.reduce((a,x)=>a+n(x.amount),0),sr=returns.reduce((a,x)=>a+n(x.amount),0);return{purchases:pi,expected:pe,invoicePaid:0,laterPaid:sp,returns:sr,sales:sales.reduce((a,x)=>a+n(x.total),0),income:income.reduce((a,x)=>a+n(x.amount),0),expenses:expenses.reduce((a,x)=>a+n(x.amount),0),withdrawals:withdrawals.reduce((a,x)=>a+n(x.amount),0)}}
 function calcInventory(){let value=0;activeProducts().forEach(p=>{let el=document.querySelector(`.invqty[data-pid="${p.id}"]`),q=el?n(el.value):0,v=q*n(p.sale_price);value+=v;let b=$('iv'+p.id);if(b)b.textContent=money(v)});let f=$('invFrom').value,t=$('invTo').value,m=periodMetrics(f,t),paid=m.invoicePaid+m.laterPaid,debt=m.purchases-paid-m.returns,cash=m.sales+m.income-paid-m.expenses-m.withdrawals,actual=cash+value-debt,expectedNet=m.expected+m.income-m.expenses-m.withdrawals,diff=actual-expectedNet;$('invValue').textContent=money(value);$('invSales').textContent=money(m.sales);$('invIncome').textContent=money(m.income);$('invPurchases').textContent=money(m.purchases);$('invSupplierPaid').textContent=money(paid);$('invReturns').textContent=money(m.returns);$('invDebt').textContent=balanceLabel(debt);$('invExpenses').textContent=money(m.expenses);$('invWithdrawals').textContent=money(m.withdrawals);$('invExpected').textContent=money(m.expected);$('invExpectedNet').textContent=money(expectedNet);$('invActualNet').textContent=money(actual);$('invResult').textContent=money(Math.abs(diff));let st=$('invStatus');if(Math.abs(diff)<0.01){st.textContent='الحساب تمام — لا عجز ولا زيادة';st.className='good'}else if(diff<0){st.textContent='عجز';st.className='bad'}else{st.textContent='زيادة';st.className='good'}}
 ['invFrom','invTo'].forEach(x=>$(x).addEventListener('change',calcInventory));$('inventoryForm').onsubmit=e=>{e.preventDefault();let lines=activeProducts().map(p=>({product_id:p.id,qty:n(document.querySelector(`.invqty[data-pid="${p.id}"]`).value)}));let payload={date:$('invDate').value,from_date:$('invFrom').value,to_date:$('invTo').value,note:$('invNote').value,lines};let r=AndroidDB.saveInventory(JSON.stringify(payload));if(r<0)AndroidDB.toast('تعذر حفظ الجرد');else{document.querySelectorAll('.invqty').forEach(x=>x.value=0);$('invNote').value='';refresh()}}
 function renderInventories(){$('inventoryRows').innerHTML=(db.inventories||[]).map(x=>`<tr><td>${dayName(x.date)}<br>${x.date}</td><td>${x.from_date||'—'} → ${x.to_date||'—'}</td><td>${money(x.total_value)}</td><td><button type="button" class="danger" onclick="deleteInventory(${x.id})">حذف</button></td></tr>`).join('')}
 function renderReport(){
-let f=$('rFrom').value,t=$('rTo').value,m=periodMetrics(f,t),
-pls=(db.purchase_lines||[]).filter(l=>{let inv=(db.purchases||[]).find(i=>n(i.id)===n(l.invoice_id));return inv&&inRange(inv.date,f,t)}),
-es=pls.reduce((a,x)=>a+n(x.expected_sales),0);
-let invs=(db.inventories||[]).filter(x=>inRange(x.date,f,t)).slice().sort((a,b)=>b.date.localeCompare(a.date)||n(b.id)-n(a.id));
-let lastInv=invs[0]||null;
-let lines=lastInv?(db.inventory_lines||[]).filter(x=>n(x.session_id)===n(lastInv.id)):[];
-let costLines=(db.purchase_lines||[]).filter(l=>{let inv=(db.purchases||[]).find(i=>n(i.id)===n(l.invoice_id));return inv&&(!t||inv.date<=t)});
-let summary=Accounting.calculateReportSummary({actualSales:m.sales,otherIncome:m.income,purchaseLines:pls,marginLines:costLines,costLines,inventoryLines:lines});
+let f=$('rFrom').value,t=$('rTo').value,m=periodMetrics(f,t),returnLines=db.supplier_return_lines||[];
+let pls=(db.purchase_lines||[]).filter(l=>{let inv=(db.purchases||[]).find(i=>n(i.id)===n(l.invoice_id));return inv&&inRange(inv.date,f,t)});
+let periodReturnLines=returnLines.filter(x=>inRange(x.date,f,t));
+let netPeriodLines=Accounting.calculateNetPurchaseLines(pls,periodReturnLines,t);
+let expectedSales=netPeriodLines.reduce((a,x)=>a+n(x.expected_sales),0);
+let inventorySessions=(db.inventories||[]).filter(x=>!t||x.date<=t).slice().sort((a,b)=>b.date.localeCompare(a.date)||n(b.id)-n(a.id));
+let lastInv=inventorySessions[0]||null;
+let inventoryLines=lastInv?(db.inventory_lines||[]).filter(x=>n(x.session_id)===n(lastInv.id)):[];
+let purchaseHistory=(db.purchase_lines||[]).filter(l=>{let inv=(db.purchases||[]).find(i=>n(i.id)===n(l.invoice_id));return inv&&(!t||inv.date<=t)});
+let netPurchaseHistory=Accounting.calculateNetPurchaseLines(purchaseHistory,returnLines,t);
+let stockPurchaseHistory=lastInv?(db.purchase_lines||[]).filter(l=>{let inv=(db.purchases||[]).find(i=>n(i.id)===n(l.invoice_id));return inv&&inv.date<=lastInv.date}):[];
+let netStockPurchaseHistory=Accounting.calculateNetPurchaseLines(stockPurchaseHistory,returnLines,lastInv?lastInv.date:'');
+let saleSummary=Accounting.calculateReportSummary({actualSales:m.sales,otherIncome:m.income,marginLines:purchaseHistory,supplierReturnLines:returnLines,returnsThroughDate:t});
+let stock=Accounting.calculateInventoryValuation(inventoryLines,netStockPurchaseHistory);
 $('rPurch').textContent=money(m.purchases);
-$('rExpectedSales').textContent=money(es);
+$('rExpectedSales').textContent=money(expectedSales);
 $('rExpectedProfit').textContent=money(m.expected);
-$('rPct').textContent=(m.purchases?m.expected/m.purchases*100:0).toFixed(2)+'%';
+let netPeriodPurchases=m.purchases-m.returns;
+$('rPct').textContent=netPeriodPurchases>0?(m.expected/netPeriodPurchases*100).toFixed(2)+'%':'—';
 $('rSales').textContent=money(m.sales);
 $('rExp').textContent=money(m.expenses);
 $('rWd').textContent=money(m.withdrawals);
 $('rInc').textContent=money(m.income);
 $('rReturns').textContent=money(m.returns);
-$('rSalesCost').textContent=money(summary.salesCost);
-$('rSalesProfit').textContent=money(summary.salesProfit);
-$('rSalesProfitWithIncome').textContent=money(summary.salesProfitWithIncome);
-$('rInventorySale').textContent=money(summary.inventorySaleValue);
-$('rInventoryCost').textContent=money(summary.inventoryCost);
-$('rInventoryProfit').textContent=money(summary.inventoryProfit);
-$('rOtherIncome').textContent=money(summary.otherIncome);
-$('rTotalSaleValue').textContent=money(summary.totalSaleValue);
-$('rTotalCost').textContent=money(summary.totalCost);
-$('rTotalProfit').textContent=money(summary.totalProfit);
-if(lastInv){
-  $('rSummaryNote').textContent='ربح المبيعات والمخزون يظهر كلٌ منهما بشكل مستقل، والإيرادات الأخرى تُضاف إلى الربح النهائي فقط. الأرباح المعروضة قبل خصم المصروفات والمسحوبات. تكلفة المخزون محسوبة بمتوسط تكلفة شراء كل صنف حسب آخر جرد بتاريخ '+lastInv.date+'.';
-}else{
-  $('rSummaryNote').textContent='ربح المبيعات يظهر بشكل مستقل، والإيرادات الأخرى تُضاف إلى الربح النهائي فقط. الأرباح المعروضة قبل خصم المصروفات والمسحوبات. سجّل جردًا داخل الفترة لإظهار قيمة وتكلفة وربح المخزون.';
-}
+$('rSalesCost').textContent=money(saleSummary.salesCost);
+$('rSalesProfit').textContent=money(saleSummary.salesProfit);
+$('rSalesProfitWithIncome').textContent=money(saleSummary.salesProfitWithIncome);
+$('rProfitAfterExpenses').textContent=money(saleSummary.salesProfitWithIncome-m.expenses);
+$('rInventorySale').textContent=money(stock.totalSaleValue);
+$('rInventoryCost').textContent=money(stock.totalCost)+(stock.unpricedLineCount?' — للأصناف ذات التكلفة المعروفة فقط':'');
+$('rInventoryProfit').textContent=money(stock.totalPotentialProfit)+(stock.unpricedLineCount?' — للأصناف ذات التكلفة المعروفة فقط':'');
+$('rInventoryCostLabel').textContent=stock.unpricedLineCount?'تكلفة الشراء المعروفة':'تكلفة المخزون بسعر الشراء';
+$('rInventoryProfitLabel').textContent=stock.unpricedLineCount?'الربح المتوقع المعروف فقط':'الربح المتوقع من المخزون المتبقي';
+$('rStockCostWarning').textContent=stock.unpricedLineCount?`تكلفة ${stock.unpricedLineCount} أصناف (${stock.unpricedQty} قطعة) غير معروفة لعدم وجود فواتير شراء؛ لم نعتبر تكلفتها صفرًا ولم نحتسب ربحها.`:'';
+$('rReturnWarning').textContent=returnProfitWarning('',t);
+$('rStockDate').textContent=lastInv?`آخر جرد مستخدم: ${dayName(lastInv.date)} ${lastInv.date}`:'لا يوجد جرد حتى نهاية الفترة المحددة. سجّل جردًا لعرض كميات المخزون.';
+$('rStockNote').textContent=lastInv?'القيم حسب الكميات الفعلية في آخر جرد حتى نهاية الفترة، والتكلفة بمتوسط شراء الصنف حتى تاريخ الجرد بعد استبعاد المرتجعات المفصلة حتى ذلك التاريخ. الربح تقديري لو تم بيع الكمية كلها.':'سجّل جردًا فعليًا حتى نهاية الفترة لإظهار الكميات وقيمة الشراء والبيع والربح المتوقع.';
 let expenseBreakdown=Accounting.calculateExpenseBreakdown(db.expenses||[],f,t);
 $('reportExpenseRows').innerHTML=expenseBreakdown.length?expenseBreakdown.map(x=>`<tr><td>${x.type}</td><td>${x.count}</td><td>${money(x.total)}</td></tr>`).join(''):`<tr><td colspan="3" class="muted">لا توجد مصروفات داخل الفترة المختارة</td></tr>`;
-let map={};
-pls.forEach(x=>{let k=x.product;if(!map[k])map[k]={buy:0,sell:0,profit:0};map[k].buy+=n(x.purchase_total);map[k].sell+=n(x.expected_sales);map[k].profit+=n(x.expected_profit)});
-$('reportProductRows').innerHTML=Object.entries(map).map(([k,v])=>`<tr><td>${k}</td><td>${money(v.buy)}</td><td>${money(v.sell)}</td><td>${money(v.profit)}</td><td>${(v.buy?v.profit/v.buy*100:0).toFixed(2)}%</td></tr>`).join('');
-let unsold=lastInv?summary.inventorySaleValue:0;
-$('rUnsold').textContent=money(unsold);
-$('rUnsoldDate').textContent=lastInv?('آخر جرد: '+dayName(lastInv.date)+' '+lastInv.date):'لا يوجد جرد في الفترة';
-$('reportUnsoldRows').innerHTML=lines.length?lines.map(x=>`<tr><td>${x.product}</td><td>${n(x.qty)}</td><td>${money(x.sale_price)}</td><td>${money(x.value)}</td></tr>`).join(''):`<tr><td colspan="4" class="muted">لا يوجد جرد محفوظ داخل الفترة المختارة</td></tr>`;
+let productMap={};
+pls.forEach(x=>{let k=x.product||'صنف';if(!productMap[k])productMap[k]={buy:0,sell:0,profit:0};productMap[k].buy+=n(x.purchase_total);productMap[k].sell+=n(x.expected_sales);productMap[k].profit+=n(x.expected_profit)});
+periodReturnLines.forEach(x=>{let k=x.product||'صنف';if(!productMap[k])productMap[k]={buy:0,sell:0,profit:0};productMap[k].buy-=n(x.qty)*n(x.unit_cost);productMap[k].sell-=n(x.qty)*n(x.unit_sale_price);productMap[k].profit-=n(x.qty)*n(x.unit_expected_profit)});
+$('reportProductRows').innerHTML=Object.keys(productMap).length?Object.entries(productMap).map(([k,v])=>`<tr><td>${k}</td><td>${money(v.buy)}</td><td>${money(v.sell)}</td><td>${money(v.profit)}</td><td>${v.buy>0?(v.profit/v.buy*100).toFixed(2)+'%':'—'}</td></tr>`).join(''):`<tr><td colspan="5" class="muted">لا توجد مشتريات أو مرتجعات في الفترة المختارة</td></tr>`;
+let visibleStock=stock.lines.filter(x=>x.qty>0);
+$('reportUnsoldRows').innerHTML=lastInv&&visibleStock.length?visibleStock.map(x=>`<tr><td>${x.product}</td><td>${x.qty}</td><td>${x.costKnown?money(x.unitCost):'—'}</td><td>${x.costKnown?money(x.costValue):'—'}</td><td>${money(x.unitSalePrice)}</td><td>${money(x.saleValue)}</td><td>${x.costKnown?money(x.potentialProfit):'—'}</td></tr>`).join(''):`<tr><td colspan="7" class="muted">${lastInv?'لا توجد كميات متبقية في آخر جرد':'سجّل جردًا لعرض البضاعة المتبقية'}</td></tr>`;
+let stockQty=visibleStock.reduce((sum,x)=>sum+x.qty,0);
+$('reportStockTotals').innerHTML=lastInv?`<tr><th>الإجمالي</th><th>${stockQty}</th><th></th><th>${stock.unpricedLineCount?'غير مكتمل':money(stock.totalCost)}</th><th></th><th>${money(stock.totalSaleValue)}</th><th>${stock.unpricedLineCount?'غير مكتمل':money(stock.totalPotentialProfit)}</th></tr>`:'';
 }
 
 let pendingDeleteAction=null;
@@ -312,7 +351,8 @@ function confirmDeleteNow(){
   $('deleteModal').classList.remove('show');
   try{
     const r=action();
-    if(Number(r)===0) AndroidDB.toast('لم يتم العثور على السجل أو تعذر حذفه');
+    if(Number(r)<0) AndroidDB.toast('لا يمكن حذف فاتورة شراء مرتبطة بمرتجع مسجل');
+    else if(Number(r)===0) AndroidDB.toast('لم يتم العثور على السجل أو تعذر حذفه');
     else AndroidDB.toast('تم الحذف بنجاح');
     refresh();
   }catch(e){
